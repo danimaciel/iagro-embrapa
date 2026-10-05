@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iAgro · Embrapa</title>
+<meta name="description" content="Demonstração: busca por significado nas publicações, soluções tecnológicas e projetos de todas as unidades da Embrapa, com dados públicos do Redape.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f4ec; --surface:#ffffff; --ink:#17251d; --muted:#5b6b61; --line:#e2e0d4;
+  --green-900:#0d3b2a; --green-700:#1f6b45; --green-500:#3f9a5c; --leaf:#a9cf6e;
+  --amber:#c8892a; --sky:#2f6f9f; --soil:#8a5a3b;
+  --pub:#1f6b45; --tec:#c8892a; --prj:#2f6f9f;
+  --hero-ink:#f3f1e6; --chip:#ffffff1f; --chip-line:#ffffff40;
+  --shadow:0 1px 2px #0d3b2a14, 0 8px 24px #0d3b2a12;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1713; --surface:#16211b; --ink:#e7ece6; --muted:#9db0a3; --line:#26352c;
+    --green-900:#0a2a1e; --green-700:#5cb57d; --green-500:#7cc893; --leaf:#b9dc82;
+    --pub:#5cb57d; --tec:#e0a648; --prj:#6aa6d6; --shadow:0 1px 2px #0006, 0 8px 24px #0005;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1713; --surface:#16211b; --ink:#e7ece6; --muted:#9db0a3; --line:#26352c;
+  --green-900:#0a2a1e; --green-700:#5cb57d; --green-500:#7cc893; --leaf:#b9dc82;
+  --pub:#5cb57d; --tec:#e0a648; --prj:#6aa6d6; --shadow:0 1px 2px #0006, 0 8px 24px #0005;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif}
+a{color:var(--green-700)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+.hero{position:relative;overflow:hidden;color:var(--hero-ink);
+  background:radial-gradient(120% 90% at 85% 0%, #2a7a4f 0%, #0d3b2a 55%, #082619 100%)}
+.hero svg.relevo{position:absolute;inset:0;width:100%;height:100%;opacity:.22;pointer-events:none}
+.hero .wrap{position:relative;padding-top:22px;padding-bottom:40px}
+.marca{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.02em}
+.marca .selo{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#ffffff18;border:1px solid #ffffff38}
+.marca small{font-weight:400;opacity:.75;margin-left:4px}
+.demo{margin-left:auto;font-size:12.5px;padding:4px 10px;border-radius:99px;background:#c8892a33;border:1px solid #e0a64866;color:#ffe2b0}
+h1{font:650 clamp(30px,5.2vw,52px)/1.08 Fraunces,Georgia,serif;margin:40px 0 12px;max-width:17ch;letter-spacing:-.01em}
+h1 em{font-style:normal;color:var(--leaf)}
+.sub{max-width:62ch;font-size:clamp(16px,2vw,18px);opacity:.9;margin:0 0 26px}
+.busca{display:flex;gap:8px;background:#fff;border-radius:14px;padding:6px;box-shadow:0 10px 30px #0006;max-width:820px}
+.busca input{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:17px;padding:12px;color:#17251d;background:transparent}
+.busca select{border:0;border-left:1px solid #e2e0d4;background:transparent;font:inherit;font-size:14.5px;color:#17251d;max-width:220px;padding:0 8px;outline:0;cursor:pointer}
+.busca button{border:0;border-radius:10px;background:var(--amber);color:#1b1206;font:600 16px Inter,sans-serif;padding:0 20px;cursor:pointer}
+.busca button:hover{filter:brightness(1.06)}
+.exemplos{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;max-width:860px}
+.exemplos span{font-size:13px;opacity:.75;align-self:center;margin-right:2px}
+.exemplos button{font:inherit;font-size:13.5px;color:var(--hero-ink);background:var(--chip);border:1px solid var(--chip-line);border-radius:99px;padding:6px 12px;cursor:pointer}
+.exemplos button:hover{background:#ffffff33}
+.estado{margin-top:14px;font-size:13px;opacity:.85;display:flex;align-items:center;gap:8px;min-height:20px}
+.estado .ponto{width:8px;height:8px;border-radius:50%;background:var(--amber);flex:none}
+.estado.ok .ponto{background:var(--leaf)}
+.estado.carregando .ponto{animation:pulsa 1.2s infinite}
+@keyframes pulsa{50%{opacity:.25}}
+.numeros{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:34px;background:#ffffff22;border-radius:14px;overflow:hidden;max-width:820px}
+.numeros div{background:#0b2e21cc;padding:14px 16px}
+.numeros b{display:block;font:650 26px/1.1 Fraunces,Georgia,serif;color:#fff}
+.numeros span{font-size:12.5px;opacity:.8}
+main{padding:28px 0 10px}
+.barra{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px}
+.abas{display:flex;flex-wrap:wrap;gap:6px}
+.abas button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:99px;padding:6px 12px;cursor:pointer}
+.abas button[aria-pressed="true"]{background:var(--green-700);border-color:var(--green-700);color:#fff}
+.abas button i{font-style:normal;opacity:.7;margin-left:4px;font-size:12.5px}
+.info{margin-left:auto;font-size:13.5px;color:var(--muted)}
+.lista{display:grid;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px 14px 20px;box-shadow:var(--shadow);position:relative}
+.card::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:4px;border-radius:0 4px 4px 0;background:var(--cor)}
+.card.PUB{--cor:var(--pub)} .card.TEC{--cor:var(--tec)} .card.PRJ{--cor:var(--prj)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:13px;color:var(--muted)}
+.tipo{font-weight:600;color:var(--cor);text-transform:uppercase;letter-spacing:.06em;font-size:11.5px}
+.unid{color:var(--ink);font-weight:500}
+.card h3{font:600 18px/1.3 Fraunces,Georgia,serif;margin:6px 0 6px}
+.card h3 a{color:var(--ink);text-decoration:none}
+.card h3 a:hover{text-decoration:underline;text-decoration-color:var(--cor)}
+.card p{margin:0 0 8px;font-size:15px;opacity:.92}
+.card p.espera{color:var(--muted);font-size:14px}
+.card .mais{border:0;background:none;color:var(--green-700);font:inherit;font-size:14px;cursor:pointer;padding:0}
+.card .rodape{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13.5px;margin-top:8px;align-items:center}
+.card .pequeno{color:var(--muted);font-size:13px}
+.botao{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:5px 12px;text-decoration:none;font-weight:500}
+.botao.forte{background:var(--tec);border-color:var(--tec);color:#1b1206}
+mark{background:#a9cf6e55;color:inherit;border-radius:3px;padding:0 1px}
+.vazio{color:var(--muted);text-align:center;padding:30px 0}
+.vermais{display:block;margin:16px auto 0;font:inherit;font-size:15px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:99px;padding:8px 18px;cursor:pointer}
+section.explica{padding:44px 0 10px}
+h2{font:650 clamp(24px,3.4vw,32px)/1.15 Fraunces,Georgia,serif;margin:0 0 8px}
+.lead{color:var(--muted);max-width:70ch;margin:0 0 22px}
+.compara{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.compara > div{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+.compara h4{margin:0 0 8px;font-size:15px}
+.compara .q{font-family:ui-monospace,Consolas,monospace;font-size:13.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0}
+.compara .r{font-size:14.5px}
+.compara .ruim h4{color:var(--soil)} .compara .bom h4{color:var(--green-700)}
+.passos{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px}
+.passo{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+.passo b{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--green-700);color:#fff;font-size:14px;margin-bottom:8px}
+.passo h4{margin:0 0 6px;font-size:16px}
+.passo p{margin:0;font-size:14.5px;color:var(--muted)}
+.linha{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:14px}
+.linha h4{margin:0 0 4px;font-size:16px}
+.linha small{color:var(--muted)}
+.linha svg{width:100%;height:150px;display:block;margin-top:10px}
+.unidades{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.unidades button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:99px;padding:4px 10px;cursor:pointer}
+.unidades button i{font-style:normal;color:var(--muted);margin-left:4px}
+footer{border-top:1px solid var(--line);margin-top:44px;padding:22px 0 40px;font-size:13.5px;color:var(--muted)}
+footer p{margin:0 0 6px;max-width:82ch}
+@media (max-width:720px){
+  .numeros{grid-template-columns:repeat(2,1fr)}
+  .compara,.passos{grid-template-columns:1fr}
+  .demo{display:none}
+  .info{margin-left:0;width:100%}
+  .busca{flex-wrap:wrap}
+  .busca input{flex-basis:100%}
+  .busca select{flex:1;min-width:0;width:0;border-left:0;border-top:1px solid #e2e0d4;padding:10px 6px;max-width:none}
+  .busca button{padding:10px 16px}
+}
+</style>
+</head>
+<body>
+<header class="hero">
+  <svg class="relevo" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true" id="relevo"></svg>
+  <div class="wrap">
+    <div class="marca">
+      <span class="selo" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e9f3d6" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg>
+      </span>
+      iAgro <small>· Embrapa</small>
+      <span class="demo">Demonstração com dados públicos</span>
+    </div>
+    <h1>Toda a produção da Embrapa, <em>do jeito que você pergunta.</em></h1>
+    <p class="sub">Publicações, soluções tecnológicas e projetos de todas as unidades. Escreva sua dúvida com suas palavras: a busca entende o significado, não só o título. Se quiser, escolha uma unidade.</p>
+    <form class="busca" id="form" role="search">
+      <input id="q" type="search" autocomplete="off" placeholder="Ex.: como controlar a lagarta-do-cartucho no milho sem veneno?" aria-label="Sua pergunta">
+      <select id="unidade" aria-label="Unidade"><option value="">Toda a Embrapa</option></select>
+      <button type="submit">Buscar</button>
+    </form>
+    <div class="exemplos" id="exemplos"><span>Experimente:</span></div>
+    <div class="estado carregando" id="estado"><span class="ponto"></span><span id="estadoTxt">Carregando a base…</span></div>
+    <div class="numeros" id="numeros"></div>
+  </div>
+</header>
+
+<main class="wrap" id="resultados" hidden>
+  <div class="barra">
+    <div class="abas" id="abas" role="group" aria-label="Filtrar por tipo"></div>
+    <div class="info" id="info"></div>
+  </div>
+  <div class="lista" id="lista" aria-live="polite"></div>
+  <button class="vermais" id="vermais" hidden>Ver mais resultados</button>
+</main>
+
+<section class="explica wrap" id="como">
+  <h2>Do catálogo à pergunta</h2>
+  <p class="lead">Bases como a BDPA e a Infoteca guardam um acervo enorme, mas pedem que a pessoa acerte as palavras do título. Esta demonstração mostra o mesmo acervo reposicionado: a pessoa pergunta como fala e chega ao documento certo, de qualquer unidade.</p>
+  <div class="compara">
+    <div class="ruim">
+      <h4>Busca por palavra exata</h4>
+      <div class="q">percevejo do eucalipto</div>
+      <p class="r">Os trabalhos sobre a praga usam o nome científico, <i>Thaumastocoris peregrinus</i>. Uma busca que depende das palavras do título deixa esses trabalhos de fora.</p>
+    </div>
+    <div class="bom">
+      <h4>Busca por significado</h4>
+      <div class="q">onde o percevejo do eucalipto pode causar mais problema?</div>
+      <p class="r">Os trabalhos sobre <i>Thaumastocoris peregrinus</i> aparecem entre os primeiros, com link para o Portal Embrapa. <a href="#" data-exemplo="Onde o percevejo-bronzeado do eucalipto pode causar mais problema no Brasil?">Ver o resultado</a></p>
+    </div>
+  </div>
+  <div class="passos">
+    <div class="passo"><b>1</b><h4>Dados abertos, atualizados todo mês</h4><p>Publicações, soluções e projetos vêm das exportações públicas da Embrapa no Redape. Uma rotina automática baixa a exportação nova e calcula só o que mudou.</p></div>
+    <div class="passo"><b>2</b><h4>Significado em números</h4><p>Cada documento vira um vetor de significado com um modelo de linguagem aberto e multilíngue (multilingual-e5). Textos parecidos ficam próximos, mesmo com palavras diferentes.</p></div>
+    <div class="passo"><b>3</b><h4>Busca no seu navegador</h4><p>Sua pergunta é comparada aos documentos aqui mesmo, combinando significado e palavras do título. Nenhuma pergunta é enviada a servidor, e o custo é zero.</p></div>
+  </div>
+  <div class="linha">
+    <h4>Publicações por ano</h4>
+    <small id="linhaLegenda"></small>
+    <svg id="grafico" role="img" aria-label="Número de publicações da Embrapa por ano"></svg>
+  </div>
+  <div class="linha">
+    <h4>Unidades</h4>
+    <small>Clique para buscar só na produção de uma unidade.</small>
+    <div class="unidades" id="unidades"></div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <p><b>Demonstração independente</b>, feita com dados públicos da Embrapa (Redape: publicações, soluções tecnológicas e projetos). Não é um serviço oficial da Embrapa. Confira sempre o documento original no Portal Embrapa.</p>
+  <p id="rodapeDados"></p>
+  <p>Método: busca híbrida (significado com multilingual-e5-base, vetores em 1 bit por dimensão, + palavras do título com BM25), fusão por posição (RRF). Publicações depositadas por mais de uma unidade aparecem uma vez só, com todas as unidades. Código aberto em <a href="https://github.com/danimaciel/iagro-embrapa">github.com/danimaciel/iagro-embrapa</a>. Piloto de uma unidade: <a href="https://danimaciel.github.io/iagro/">iAgro Embrapa Territorial</a>.</p>
+</footer>
+
+<script type="module">
+const EXEMPLOS = [
+  "Controle biológico da lagarta-do-cartucho no milho",
+  "Cultivares de feijão para o semiárido",
+  "Como fazer silagem de milho",
+  "Integração lavoura-pecuária-floresta no Cerrado",
+  "Produção de mudas de açaí",
+  "Aplicativo para calcular adubação",
+];
+const TIPOS = ["PUB", "TEC", "PRJ"];
+const NOME_TIPO = {PUB: "Publicação", TEC: "Solução tecnológica", PRJ: "Projeto"};
+const ABAS = [["", "Tudo"], ["PUB", "Publicações"], ["TEC", "Soluções"], ["PRJ", "Projetos"]];
+const POR_PAGINA = 20, MAX_RES = 100;
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString("pt-BR");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const norm = s => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const PARADAS = new Set("a o as os de da do das dos e em no na nos nas um uma para por com sem que qual quais como onde ha tem existe sobre ao aos se sua seu ou mais menos ser sao foi muito pode podem esta este essa esse isso the of and in for to on with".split(" "));
+const tokens = s => norm(s).match(/[a-z0-9]+/g)?.filter(t => t.length > 1 && !PARADAS.has(t)) ?? [];
+
+let INFO, IDX, BITS, N, extrator = null, POST = null, LEN = null, MEDIA_LEN = 0;
+let ultima = "", unidadeSel = "", filtro = "", ranking = [], mostrados = POR_PAGINA;
+const blocos = new Map();
+
+/* ---------- relevo do topo */
+(function relevo() {
+  let d = "";
+  for (let k = 0; k < 16; k++) {
+    const y0 = 40 + k * 36, a = 18 + (k % 5) * 6;
+    d += `<path d="M -20 ${y0} ` + Array.from({length: 13}, (_, i) => {
+      const x = i * 100, y = y0 + Math.sin(i * 0.9 + k * 0.55) * a + Math.cos(i * 0.37 + k) * a * 0.6;
+      return `S ${x - 50} ${y} ${x} ${y}`;
+    }).join(" ") + `" fill="none" stroke="#cfe8b0" stroke-width="${k % 4 ? 0.8 : 1.6}"/>`;
+  }
+  $("relevo").innerHTML = d;
+})();
+
+const unidadesDe = i => { const u = IDX.u[i]; return Array.isArray(u) ? u : [u]; };
+
+/* ---------- BM25 nos títulos (índice invertido) */
+function indexar() {
+  const post = new Map(); LEN = new Uint16Array(N); let soma = 0;
+  for (let i = 0; i < N; i++) {
+    const ts = tokens(IDX.t[i]); LEN[i] = ts.length; soma += ts.length;
+    for (const t of new Set(ts)) { let p = post.get(t); if (!p) post.set(t, p = []); p.push(i); }
+  }
+  MEDIA_LEN = soma / N; POST = post;
+}
+function bm25(q, ok) {
+  const s = new Float32Array(N), k1 = 1.2, b = 0.75;
+  if (!POST) return s;
+  for (const t of new Set(tokens(q))) {
+    const p = POST.get(t); if (!p) continue;
+    const idf = Math.log(1 + (N - p.length + 0.5) / (p.length + 0.5));
+    for (const i of p) if (ok[i]) s[i] += idf * (k1 + 1) / (1 + k1 * (1 - b + b * LEN[i] / MEDIA_LEN));
+  }
+  return s;
+}
+
+/* ---------- significado: pergunta (float, centrada) × documentos (1 bit) */
+async function semantica(q, ok) {
+  if (!extrator) return null;
+  const v = (await extrator("query: " + q, {pooling: "mean", normalize: true})).data;
+  const D = INFO.dim, B = D / 8, qc = new Float32Array(D);
+  for (let j = 0; j < D; j++) qc[j] = v[j] - INFO.media[j];
+  // tabela por byte: soma de ±qc para os 8 bits daquele byte
+  const tab = new Float32Array(B * 256);
+  for (let j = 0; j < B; j++) for (let x = 0; x < 256; x++) {
+    let s = 0; for (let k = 0; k < 8; k++) s += (x & (128 >> k)) ? qc[j * 8 + k] : -qc[j * 8 + k];
+    tab[j * 256 + x] = s;
+  }
+  const s = new Float32Array(N).fill(-Infinity);
+  for (let i = 0; i < N; i++) {
+    if (!ok[i]) continue;
+    let acc = 0; const o = i * B;
+    for (let j = 0; j < B; j++) acc += tab[j * 256 + BITS[o + j]];
+    s[i] = acc;
+  }
+  return s;
+}
+function topo(s, k) {
+  const idx = []; for (let i = 0; i < s.length; i++) if (s[i] > 0 && s[i] !== -Infinity) idx.push(i);
+  idx.sort((a, b) => s[b] - s[a]); return idx.slice(0, k);
+}
+function topoSem(s, k) {
+  const idx = []; for (let i = 0; i < s.length; i++) if (s[i] !== -Infinity) idx.push(i);
+  idx.sort((a, b) => s[b] - s[a]); return idx.slice(0, k);
+}
+
+async function buscar(q) {
+  q = q.trim(); if (!q) return;
+  ultima = q; mostrados = POR_PAGINA;
+  const params = new URLSearchParams({q}); if (unidadeSel !== "") params.set("u", INFO.unidades[unidadeSel].nome);
+  history.replaceState(null, "", "#" + params.toString());
+  const ok = new Uint8Array(N);
+  if (unidadeSel === "") ok.fill(1); else { const u = +unidadeSel; for (let i = 0; i < N; i++) if (unidadesDe(i).includes(u)) ok[i] = 1; }
+  const sb = bm25(q, ok), se = await semantica(q, ok);
+  const pts = new Map();
+  topo(sb, 1000).forEach((i, r) => pts.set(i, (pts.get(i) || 0) + 1 / (60 + r)));
+  if (se) topoSem(se, 1000).forEach((i, r) => pts.set(i, (pts.get(i) || 0) + 1 / (60 + r)));
+  ranking = [...pts.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX_RES).map(([i]) => i);
+  mostrar();
+}
+
+/* ---------- detalhes sob demanda */
+async function detalhe(i) {
+  const b = Math.floor(i / INFO.bloco);
+  if (!blocos.has(b)) blocos.set(b, fetch(`dados/det/${String(b).padStart(4, "0")}.json`).then(r => r.json()));
+  return (await blocos.get(b))[i % INFO.bloco];
+}
+
+/* ---------- interface */
+function destacar(texto, q) {
+  const ts = tokens(q).filter(t => t.length > 3);
+  if (!ts.length || !texto) return esc(texto);
+  const re = new RegExp("(" + ts.join("|") + ")", "gi"), base = norm(texto);
+  let out = "", ult = 0, m;
+  while ((m = re.exec(base))) { out += esc(texto.slice(ult, m.index)) + "<mark>" + esc(texto.slice(m.index, m.index + m[0].length)) + "</mark>"; ult = m.index + m[0].length; }
+  return out + esc(texto.slice(ult));
+}
+function abas() {
+  const cont = {"": ranking.length};
+  ranking.forEach(i => { const t = TIPOS[IDX.k[i]]; cont[t] = (cont[t] || 0) + 1; });
+  $("abas").innerHTML = ABAS.map(([k, n]) => `<button data-f="${k}" aria-pressed="${filtro === k}">${n}<i>${fmt(cont[k] || 0)}</i></button>`).join("");
+}
+function nomesUnidades(i) {
+  const us = unidadesDe(i).map(u => INFO.unidades[u].nome);
+  if (!us.length) return "Unidade não informada";
+  return us.length <= 3 ? us.join(", ") : us.slice(0, 3).join(", ") + ` e mais ${us.length - 3}`;
+}
+function mostrar() {
+  $("resultados").hidden = false;
+  abas();
+  const lista = ranking.filter(i => !filtro || TIPOS[IDX.k[i]] === filtro);
+  const alvo = unidadeSel === "" ? "toda a Embrapa" : INFO.unidades[unidadeSel].nome;
+  $("info").textContent = (extrator ? "Mais próximos por significado e palavras" : "Busca por palavras do título (a busca por significado ainda está carregando)") + ` · ${alvo}`;
+  $("vermais").hidden = lista.length <= mostrados;
+  if (!lista.length) { $("lista").innerHTML = `<p class="vazio">Nada encontrado. Tente descrever de outro jeito${unidadeSel !== "" ? " ou buscar em toda a Embrapa" : ""}.</p>`; return; }
+  $("lista").innerHTML = lista.slice(0, mostrados).map(i => {
+    const t = TIPOS[IDX.k[i]];
+    return `<article class="card ${t}" data-i="${i}">
+      <div class="meta"><span class="tipo">${NOME_TIPO[t]}</span><span>${IDX.a[i] || "ano não informado"}</span><span class="unid">${esc(nomesUnidades(i))}</span><span class="det-d"></span></div>
+      <h3><a class="det-l" target="_blank" rel="noopener">${destacar(IDX.t[i], ultima)}</a></h3>
+      <p class="espera">Carregando resumo…</p>
+      <div class="rodape"></div></article>`;
+  }).join("");
+  $("lista").querySelectorAll(".card").forEach(async el => {
+    const i = +el.dataset.i, d = await detalhe(i), t = TIPOS[IDX.k[i]];
+    const resumo = d.r || "", curto = resumo.length > 340 ? resumo.slice(0, 340).replace(/\s\S*$/, "") + "…" : resumo;
+    el.querySelector(".det-d").textContent = d.d || "";
+    el.querySelector(".det-l").href = d.l;
+    const p = el.querySelector("p");
+    p.className = resumo ? "" : "espera";
+    p.dataset.curto = curto; p.dataset.longo = resumo;
+    p.innerHTML = resumo ? destacar(curto, ultima) : "Resumo não disponível.";
+    if (resumo.length > curto.length) p.insertAdjacentHTML("afterend", `<button class="mais">Ler resumo completo</button>`);
+    el.querySelector(".rodape").innerHTML = `
+      ${d.o ? `<a class="botao forte" href="${esc(/^https?:/.test(d.o) ? d.o : "https://" + d.o)}" target="_blank" rel="noopener">Acessar a solução ↗</a>` : ""}
+      <a class="botao" href="${esc(d.l)}" target="_blank" rel="noopener">Ver no Portal Embrapa ↗</a>
+      ${d.b ? `<span class="pequeno">Bioma: ${esc(d.b)}</span>` : ""}
+      ${d.au ? `<span class="pequeno">${esc(d.au)}</span>` : ""}
+      ${d.n ? `<span class="pequeno">depositada por ${d.n} unidades</span>` : ""}
+      <span class="pequeno">${esc(d.c)}</span>`;
+  });
+}
+
+$("form").addEventListener("submit", e => { e.preventDefault(); buscar($("q").value); });
+$("unidade").addEventListener("change", e => { unidadeSel = e.target.value; if (ultima) buscar(ultima); });
+$("abas").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; filtro = b.dataset.f; mostrados = POR_PAGINA; mostrar(); });
+$("vermais").addEventListener("click", () => { mostrados += POR_PAGINA; mostrar(); });
+$("lista").addEventListener("click", e => {
+  const b = e.target.closest(".mais"); if (!b) return;
+  const p = b.previousElementSibling, longo = b.textContent.startsWith("Ler");
+  p.innerHTML = destacar(longo ? p.dataset.longo : p.dataset.curto, ultima);
+  b.textContent = longo ? "Mostrar menos" : "Ler resumo completo";
+});
+document.addEventListener("click", e => {
+  const a = e.target.closest("[data-exemplo]");
+  if (a) { e.preventDefault(); $("q").value = a.dataset.exemplo; buscar(a.dataset.exemplo); $("resultados").scrollIntoView({behavior: "smooth"}); return; }
+  const u = e.target.closest("[data-unidade]");
+  if (u) { unidadeSel = u.dataset.unidade; $("unidade").value = unidadeSel; window.scrollTo({top: 0, behavior: "smooth"}); $("q").focus(); if (ultima) buscar(ultima); }
+});
+$("exemplos").insertAdjacentHTML("beforeend", EXEMPLOS.map(x => `<button type="button" data-exemplo="${esc(x)}">${esc(x)}</button>`).join(""));
+
+function grafico(porAno) {
+  const anos = Object.keys(porAno).map(Number), max = Math.max(...Object.values(porAno));
+  const W = 1000, H = 150, b = 18, w = W / anos.length;
+  const svg = $("grafico"); svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("preserveAspectRatio", "none");
+  svg.innerHTML = anos.map((a, k) => {
+    const h = (porAno[a] / max) * (H - b - 6);
+    return `<rect x="${k * w + 1}" y="${H - b - h}" width="${Math.max(1, w - 2)}" height="${h}" rx="2" fill="var(--green-500)"><title>${a}: ${fmt(porAno[a])} publicações</title></rect>`;
+  }).join("") + anos.filter(a => a % 5 === 0).map(a => `<text x="${(a - anos[0]) * w + w / 2}" y="${H - 3}" font-size="11" text-anchor="middle" fill="var(--muted)">${a}</text>`).join("");
+}
+function estado(txt, cls) { $("estadoTxt").textContent = txt; $("estado").className = "estado " + cls; }
+
+async function iniciar() {
+  INFO = await fetch("dados/info.json").then(r => r.json());
+  N = INFO.n;
+  $("numeros").innerHTML = [[INFO.publicacoes, "publicações"], [INFO.solucoes, "soluções tecnológicas"], [INFO.projetos, "projetos"], [INFO.unidades.length, "unidades"]]
+    .map(([n, t]) => `<div><b>${fmt(n)}</b><span>${t}</span></div>`).join("");
+  const ordem = INFO.unidades.map((u, i) => [u, i]).sort((a, b) => a[0].nome.localeCompare(b[0].nome, "pt-BR"));
+  $("unidade").insertAdjacentHTML("beforeend", ordem.map(([u, i]) => `<option value="${i}">${esc(u.nome)}</option>`).join(""));
+  $("unidades").innerHTML = ordem.map(([u, i]) => `<button data-unidade="${i}">${esc(u.nome.replace(/^Embrapa /, ""))}<i>${fmt(u.n)}</i></button>`).join("");
+  $("rodapeDados").textContent = `Base: ${fmt(INFO.n)} documentos de ${INFO.unidades.length} unidades, exportação do Redape de ${INFO.exportacao}.`;
+  $("linhaLegenda").textContent = `${fmt(INFO.publicacoes)} publicações (cada uma contada uma vez), de ${INFO.ano_min} a ${INFO.ano_max}.`;
+  grafico(INFO.por_ano);
+
+  estado(`Baixando o índice de ${fmt(N)} documentos…`, "carregando");
+  const [idx, bits] = await Promise.all([
+    fetch("dados/indice.json").then(r => r.json()),
+    fetch("dados/bits.bin").then(r => r.arrayBuffer()),
+  ]);
+  IDX = idx; BITS = new Uint8Array(bits);
+  indexar();
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get("u")) { const i = INFO.unidades.findIndex(u => u.nome === h.get("u")); if (i >= 0) { unidadeSel = String(i); $("unidade").value = unidadeSel; } }
+  estado("Busca por palavras pronta. Preparando a busca por significado (cerca de 110 MB, só na primeira visita)…", "carregando");
+  if (h.get("q")) { $("q").value = h.get("q"); buscar(h.get("q")); }
+  try {
+    const {pipeline, env} = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1");
+    env.allowLocalModels = false;
+    let ult = -1;
+    extrator = await pipeline("feature-extraction", "Xenova/multilingual-e5-base", {
+      dtype: "q8",
+      progress_callback: p => {
+        if (p.status === "progress" && p.file?.endsWith(".onnx")) {
+          const pct = Math.round(p.progress); if (pct !== ult) { ult = pct; estado(`Baixando o modelo de significado: ${pct}% (só na primeira visita)`, "carregando"); }
+        }
+      },
+    });
+    estado("Busca por significado pronta. Tudo roda no seu navegador.", "ok");
+    if (ultima) buscar(ultima);
+  } catch (err) {
+    console.error(err);
+    estado("Não foi possível carregar a busca por significado neste aparelho; usando busca por palavras do título.", "");
+  }
+}
+iniciar().catch(err => { console.error(err); estado("Erro ao carregar a base.", ""); });
+</script>
+</body>
+</html>

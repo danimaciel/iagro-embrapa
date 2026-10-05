@@ -1,0 +1,7 @@
+# Dados baixados do Redape, base montada e vetores: gerados pelo fluxo, não vão para o git
+/dados/
+# Dados da página: gerados por pipeline/site_dados.py no momento da publicação
+/site/dados/
+__pycache__/
+.venv/
+.claude/

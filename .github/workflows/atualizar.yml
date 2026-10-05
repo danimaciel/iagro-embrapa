@@ -1,0 +1,130 @@
+name: Atualizar base e publicar página
+
+# Todo mês: baixa a exportação mais recente do Redape, calcula vetores só dos documentos novos
+# (em partes paralelas), guarda o cache como anexo da release "cache-vetores" e publica a página.
+on:
+  schedule:
+    - cron: "0 9 12 * *"   # dia 12 de cada mês, 6h de Brasília
+  workflow_dispatch:
+    inputs:
+      mes:
+        description: "Exportação AAAA-MM (vazio = mais recente)"
+        required: false
+        default: ""
+  push:
+    branches: [main]
+    paths: ["site/**"]     # mudança só na página: republica sem recalcular nada novo
+
+permissions:
+  contents: write   # anexar o cache de vetores na release
+  pages: write
+  id-token: write
+
+concurrency:
+  group: atualizar
+  cancel-in-progress: false
+
+env:
+  CACHE_TAG: cache-vetores
+
+jobs:
+  preparar:
+    runs-on: ubuntu-latest
+    outputs:
+      partes: ${{ steps.faltam.outputs.partes }}
+      mes: ${{ steps.baixar.outputs.mes }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip, cache-dependency-path: pipeline/requirements-base.txt }
+      - run: pip install -r pipeline/requirements-base.txt
+      - name: Baixar exportação do Redape
+        id: baixar
+        run: |
+          python pipeline/redape.py ${{ inputs.mes }} | tee saida.txt
+          echo "mes=$(tail -n 1 saida.txt)" >> "$GITHUB_OUTPUT"
+      - name: Montar base
+        run: python pipeline/base.py ${{ steps.baixar.outputs.mes }}
+      - name: Baixar cache de vetores
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          mkdir -p dados/cache
+          gh release download "$CACHE_TAG" -D dados/cache -p 'e5*' || echo "sem cache ainda: calcula tudo"
+      - name: Listar textos sem vetor
+        id: faltam
+        run: |
+          python pipeline/vetores.py faltam --partes 30 | tee saida.txt
+          grep '^PARTES=' saida.txt | sed 's/^PARTES=/partes=/' >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: base
+          path: |
+            dados/base.parquet
+            dados/faltam.parquet
+          retention-days: 3
+
+  vetores:
+    needs: preparar
+    if: needs.preparar.outputs.partes != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        parte: ${{ fromJSON(needs.preparar.outputs.partes) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip, cache-dependency-path: pipeline/requirements-vetores.txt }
+      - run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r pipeline/requirements-vetores.txt
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-multilingual-e5-base
+      - uses: actions/download-artifact@v4
+        with: { name: base, path: dados }
+      - run: python pipeline/vetores.py calcular --parte ${{ matrix.parte }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: parte-${{ matrix.parte }}
+          path: dados/partes/
+          retention-days: 3
+
+  publicar:
+    needs: [preparar, vetores]
+    if: always() && needs.preparar.result == 'success' && (needs.vetores.result == 'success' || needs.vetores.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip, cache-dependency-path: pipeline/requirements-base.txt }
+      - run: pip install -r pipeline/requirements-base.txt
+      - uses: actions/download-artifact@v4
+        with: { name: base, path: dados }
+      - uses: actions/download-artifact@v4
+        with: { pattern: parte-*, path: dados/partes, merge-multiple: true }
+      - name: Juntar cache
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          mkdir -p dados/cache
+          gh release download "$CACHE_TAG" -D dados/cache -p 'e5*' || true
+          python pipeline/vetores.py juntar
+      - name: Guardar cache na release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release view "$CACHE_TAG" >/dev/null 2>&1 || \
+            gh release create "$CACHE_TAG" --title "Cache de vetores (uso interno do fluxo)" \
+              --notes "Vetores multilingual-e5-base da base do iAgro. Atualizado automaticamente."
+          gh release upload "$CACHE_TAG" dados/cache/e5.npy dados/cache/e5_hash.parquet --clobber
+      - name: Gerar dados da página
+        run: python pipeline/site_dados.py ${{ needs.preparar.outputs.mes }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+      - id: deploy
+        uses: actions/deploy-pages@v4
