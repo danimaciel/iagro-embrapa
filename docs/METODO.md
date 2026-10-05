@@ -37,5 +37,25 @@ A pergunta não é comprimida: o vetor dela (centrado na média dos documentos) 
 Busca híbrida: significado (acima) + BM25 nos títulos, com fusão pela posição de cada documento nas duas listas
 (Reciprocal Rank Fusion, k = 60). O filtro de unidade é aplicado antes do ranking.
 
+## Resultado na página publicada (exportação de outubro de 2026)
+
+Base: 185.407 documentos de 44 unidades (180.949 publicações, 1.266 soluções, 3.192 projetos). Índice de 20 MB e
+vetores de 18 MB; a página fica pronta em cerca de 30 segundos numa conexão comum (mais o modelo, cerca de 110 MB,
+só na primeira visita).
+
+Gabarito da Embrapa Territorial (23 perguntas com resposta), testado na própria página publicada em 05/10/2026:
+
+| Modo | Documento esperado em 1º | Entre os 4 primeiros | Entre os 20 primeiros |
+|---|---|---|---|
+| Filtro "Embrapa Territorial" | 15 | 20 | 22 |
+| Toda a Embrapa | 8 | 14 | 19 |
+
+Na Embrapa toda, documentos de outras unidades concorrem — e muitas vezes também respondem (por exemplo, aquicultura
+traz a Embrapa Pesca e Aquicultura). Perguntas gerais testadas trazem as unidades esperadas (lagarta-do-cartucho:
+Milho e Sorgo e Clima Temperado; mudas de açaí: Amapá, Acre e Roraima; cultivares de feijão: Arroz e Feijão e Meio-Norte).
+
+Próximo ajuste a testar: publicações com título curto e sem resumo sobem demais quando as palavras do título batem
+(peso da busca por palavras na fusão).
+
 O aviso de "relação fraca" da versão da Territorial foi retirado: na base inteira a semelhança do primeiro
 resultado é igual para perguntas com e sem resposta (0,894 × 0,895), então não serve como sinal.
