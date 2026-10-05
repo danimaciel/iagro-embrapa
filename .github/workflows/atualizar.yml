@@ -53,7 +53,7 @@ jobs:
       - name: Listar textos sem vetor
         id: faltam
         run: |
-          python pipeline/vetores.py faltam --partes 30 | tee saida.txt
+          python pipeline/vetores.py faltam --partes 24 | tee saida.txt
           grep '^PARTES=' saida.txt | sed 's/^PARTES=/partes=/' >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
@@ -70,6 +70,7 @@ jobs:
     timeout-minutes: 300
     strategy:
       fail-fast: false
+      max-parallel: 8   # mais que isso, o GitHub às vezes não consegue máquinas e cancela partes
       matrix:
         parte: ${{ fromJSON(needs.preparar.outputs.partes) }}
     steps:
@@ -94,7 +95,9 @@ jobs:
 
   publicar:
     needs: [preparar, vetores]
-    if: always() && needs.preparar.result == 'success' && (needs.vetores.result == 'success' || needs.vetores.result == 'skipped')
+    # Publica mesmo se alguma parte falhar: o cache guarda o que foi calculado e a próxima
+    # execução calcula só o que faltou (a página mostra os documentos que já têm vetor).
+    if: always() && needs.preparar.result == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
