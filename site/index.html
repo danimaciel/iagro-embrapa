@@ -77,6 +77,9 @@ main{padding:28px 0 10px}
 .meta{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:13px;color:var(--muted)}
 .tipo{font-weight:600;color:var(--cor);text-transform:uppercase;letter-spacing:.06em;font-size:11.5px}
 .unid{color:var(--ink);font-weight:500}
+.prox{margin-left:auto;font-size:12px;display:flex;align-items:center;gap:6px;cursor:help}
+.prox i{display:inline-block;width:42px;height:6px;border-radius:9px;background:var(--line);overflow:hidden;position:relative}
+.prox i::after{content:"";position:absolute;inset:0;width:var(--p);background:var(--green-500)}
 .card h3{font:600 18px/1.3 Fraunces,Georgia,serif;margin:6px 0 6px}
 .card h3 a{color:var(--ink);text-decoration:none}
 .card h3 a:hover{text-decoration:underline;text-decoration-color:var(--cor)}
@@ -217,7 +220,7 @@ const PARADAS = new Set("a o as os de da do das dos e em no na nos nas um uma pa
 const tokens = s => norm(s).match(/[a-z0-9]+/g)?.filter(t => t.length > 1 && !PARADAS.has(t)) ?? [];
 
 let INFO, IDX, BITS, N, extrator = null, POST = null, LEN = null, MEDIA_LEN = 0;
-let ultima = "", unidadeSel = "", filtro = "", ranking = [], mostrados = POR_PAGINA;
+let ultima = "", unidadeSel = "", filtro = "", ranking = [], mostrados = POR_PAGINA, NOTA = new Map();
 const blocos = new Map();
 
 /* ---------- relevo do topo */
@@ -298,7 +301,7 @@ async function reordenar(cand, v) {
       nota.set(i, acc * f);
     }
   }));
-  return [...cand].sort((a, b) => nota.get(b) - nota.get(a));
+  return {ordem: [...cand].sort((a, b) => nota.get(b) - nota.get(a)), nota};
 }
 function topo(s, k) {
   const idx = []; for (let i = 0; i < s.length; i++) if (s[i] > 0 && s[i] !== -Infinity) idx.push(i);
@@ -317,13 +320,15 @@ async function buscar(q) {
   const ok = new Uint8Array(N);
   if (unidadeSel === "") ok.fill(1); else { const u = +unidadeSel; for (let i = 0; i < N; i++) if (unidadesDe(i).includes(u)) ok[i] = 1; }
   const se = await semantica(q, ok);
-  if (!se) ranking = topo(bm25(q, ok), MAX_RES);   // modelo ainda carregando: palavras do título
+  let res = [], nota = new Map();
+  if (!se) res = topo(bm25(q, ok), MAX_RES);   // modelo ainda carregando: palavras do título
   else {
     const cand = topoSem(se.s, CANDIDATOS);
-    try { ranking = (await reordenar(cand, se.v)).slice(0, MAX_RES); }
-    catch (err) { console.warn(err); ranking = cand.slice(0, MAX_RES); }
+    try { const r = await reordenar(cand, se.v); res = r.ordem.slice(0, MAX_RES); nota = r.nota; }
+    catch (err) { console.warn(err); res = cand.slice(0, MAX_RES); }
   }
   if (q !== ultima) return;  // chegou outra pergunta enquanto esta era processada
+  ranking = res; NOTA = nota;
   mostrar();
 }
 
@@ -363,8 +368,11 @@ function mostrar() {
   if (!lista.length) { $("lista").innerHTML = `<p class="vazio">Nada encontrado. Tente descrever de outro jeito${unidadeSel !== "" ? " ou buscar em toda a Embrapa" : ""}.</p>`; return; }
   $("lista").innerHTML = lista.slice(0, mostrados).map(i => {
     const t = TIPOS[IDX.k[i]];
+    // proximidade: cosseno com a pergunta; na base inteira vai de cerca de 0,80 (barra vazia) a 0,90 (cheia)
+    const p = NOTA.has(i) ? Math.round(Math.max(0, Math.min(1, (NOTA.get(i) - 0.80) / 0.10)) * 100) : null;
     return `<article class="card ${t}" data-i="${i}">
-      <div class="meta"><span class="tipo">${NOME_TIPO[t]}</span><span>${IDX.a[i] || "ano não informado"}</span><span class="unid">${esc(nomesUnidades(i))}</span><span class="det-d"></span></div>
+      <div class="meta"><span class="tipo">${NOME_TIPO[t]}</span><span>${IDX.a[i] || "ano não informado"}</span><span class="unid">${esc(nomesUnidades(i))}</span><span class="det-d"></span>
+        ${p != null ? `<span class="prox" title="Proximidade de significado entre o documento e a sua pergunta, comparada aos demais documentos. Não garante que o documento responda à pergunta.">proximidade <i style="--p:${p}%"></i></span>` : ""}</div>
       <h3><a class="det-l" target="_blank" rel="noopener">${destacar(IDX.t[i], ultima)}</a></h3>
       <p class="espera">Carregando resumo…</p>
       <div class="rodape"></div></article>`;
