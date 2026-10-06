@@ -75,7 +75,21 @@ Na Embrapa toda, documentos de outras unidades concorrem — e muitas vezes tamb
 traz a Embrapa Pesca e Aquicultura). Perguntas gerais testadas trazem as unidades esperadas (lagarta-do-cartucho:
 Milho e Sorgo e Clima Temperado; mudas de açaí: Amapá, Acre e Roraima; cultivares de feijão: Arroz e Feijão e Meio-Norte).
 
-Os números acima são da versão 1 (ver "Busca").
+Os números acima são da versão 1 (ver "Busca"). Versão 2, testada na página publicada em 06/10/2026:
+
+| Modo | 1º lugar | Entre os 4 primeiros | Entre os 20 primeiros |
+|---|---|---|---|
+| Filtro "Embrapa Territorial" | 20 | 23 | 23 |
+| Toda a Embrapa | 13 | 17 | 21 |
+
+Um pouco abaixo da simulação em Python (21 e 15 em 1º lugar) porque o navegador usa a versão comprimida (q8) do
+modelo para a pergunta. Tempo de busca na página publicada: cerca de 0,5 a 2 segundos, incluindo a leitura dos
+vetores dos 120 candidatos. Exemplo de ganho: "como diminuir o calor que as vacas sentem no verão" trazia em 1º
+"perda de água por cocção de carne"; agora traz sombra para vacas em sistemas silvipastoris e estresse térmico
+em vacas leiteiras.
+
+A barra de proximidade mostra o cosseno entre pergunta e documento, de 0,80 (vazia) a 0,90 (cheia). Ela compara
+os resultados entre si; não indica se a base responde à pergunta (perguntas fora do tema também chegam a 0,86).
 
 O aviso de "relação fraca" da versão da Territorial foi retirado: na base inteira a semelhança do primeiro
 resultado é igual para perguntas com e sem resposta (0,894 × 0,895), então não serve como sinal.
