@@ -176,7 +176,7 @@ footer p{margin:0 0 6px;max-width:82ch}
   <div class="passos">
     <div class="passo"><b>1</b><h4>Dados abertos, atualizados todo mês</h4><p>Publicações, soluções e projetos vêm das exportações públicas da Embrapa no Redape. Uma rotina automática baixa a exportação nova e calcula só o que mudou.</p></div>
     <div class="passo"><b>2</b><h4>Significado em números</h4><p>Cada documento vira um vetor de significado com um modelo de linguagem aberto e multilíngue (multilingual-e5). Textos parecidos ficam próximos, mesmo com palavras diferentes.</p></div>
-    <div class="passo"><b>3</b><h4>Busca no seu navegador</h4><p>Sua pergunta é comparada aos documentos aqui mesmo, combinando significado e palavras do título. Nenhuma pergunta é enviada a servidor, e o custo é zero.</p></div>
+    <div class="passo"><b>3</b><h4>Busca no seu navegador</h4><p>Sua pergunta vira um vetor aqui mesmo e é comparada a todos os documentos: primeiro numa versão compacta, depois com precisão total nos mais próximos. Nenhuma pergunta é enviada a servidor, e o custo é zero.</p></div>
   </div>
   <div class="linha">
     <h4>Publicações por ano</h4>
@@ -193,7 +193,7 @@ footer p{margin:0 0 6px;max-width:82ch}
 <footer class="wrap">
   <p><b>Demonstração independente</b>, feita com dados públicos da Embrapa (Redape: publicações, soluções tecnológicas e projetos). Não é um serviço oficial da Embrapa. Confira sempre o documento original no Portal Embrapa.</p>
   <p id="rodapeDados"></p>
-  <p>Método: busca híbrida (significado com multilingual-e5-base, vetores em 1 bit por dimensão, + palavras do título com BM25), fusão por posição (RRF). Publicações depositadas por mais de uma unidade aparecem uma vez só, com todas as unidades. Código aberto em <a href="https://github.com/danimaciel/iagro-embrapa">github.com/danimaciel/iagro-embrapa</a>. Piloto de uma unidade: <a href="https://danimaciel.github.io/iagro/">iAgro Embrapa Territorial</a>.</p>
+  <p>Método: busca por significado com o modelo multilingual-e5-base, em dois passos (vetores de 1 bit por dimensão selecionam 120 candidatos; o vetor completo os reordena). A busca por palavras do título só é usada enquanto o modelo carrega. Publicações depositadas por mais de uma unidade aparecem uma vez só, com todas as unidades. Código aberto em <a href="https://github.com/danimaciel/iagro-embrapa">github.com/danimaciel/iagro-embrapa</a>. Piloto de uma unidade: <a href="https://danimaciel.github.io/iagro/">iAgro Embrapa Territorial</a>.</p>
 </footer>
 
 <script type="module">
@@ -208,7 +208,7 @@ const EXEMPLOS = [
 const TIPOS = ["PUB", "TEC", "PRJ"];
 const NOME_TIPO = {PUB: "Publicação", TEC: "Solução tecnológica", PRJ: "Projeto"};
 const ABAS = [["", "Tudo"], ["PUB", "Publicações"], ["TEC", "Soluções"], ["PRJ", "Projetos"]];
-const POR_PAGINA = 20, MAX_RES = 100;
+const POR_PAGINA = 20, MAX_RES = 100, CANDIDATOS = 120;
 const $ = id => document.getElementById(id);
 const fmt = n => n.toLocaleString("pt-BR");
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -274,7 +274,31 @@ async function semantica(q, ok) {
     for (let j = 0; j < B; j++) acc += tab[j * 256 + BITS[o + j]];
     s[i] = acc;
   }
-  return s;
+  return {s, v};
+}
+
+/* ---------- reordena os candidatos com o vetor completo (int8), lendo só as linhas deles */
+async function reordenar(cand, v) {
+  const D = INFO.dim, L = INFO.linhas_vet, f = INFO.escala / 127, quer = new Set(cand), nota = new Map();
+  const grupos = [];
+  for (const i of [...cand].sort((a, b) => a - b)) {   // linhas vizinhas do mesmo arquivo vão juntas
+    const g = grupos[grupos.length - 1];
+    if (g && Math.floor(i / L) === Math.floor(g.ini / L) && i - g.fim <= 8) g.fim = i; else grupos.push({ini: i, fim: i});
+  }
+  await Promise.all(grupos.map(async g => {
+    const a = (g.ini % L) * D, z = (g.fim % L) * D + D - 1;
+    const r = await fetch(`dados/vet/${String(Math.floor(g.ini / L)).padStart(2, "0")}.bin`, {headers: {Range: `bytes=${a}-${z}`}});
+    if (!r.ok) throw new Error("vetores " + r.status);
+    let buf = new Int8Array(await r.arrayBuffer());
+    if (r.status === 200) buf = buf.subarray(a, z + 1);  // servidor sem suporte a trecho: veio o arquivo todo
+    for (let i = g.ini; i <= g.fim; i++) {
+      if (!quer.has(i)) continue;
+      let acc = 0; const o = (i - g.ini) * D;
+      for (let j = 0; j < D; j++) acc += v[j] * buf[o + j];
+      nota.set(i, acc * f);
+    }
+  }));
+  return [...cand].sort((a, b) => nota.get(b) - nota.get(a));
 }
 function topo(s, k) {
   const idx = []; for (let i = 0; i < s.length; i++) if (s[i] > 0 && s[i] !== -Infinity) idx.push(i);
@@ -292,11 +316,14 @@ async function buscar(q) {
   history.replaceState(null, "", "#" + params.toString());
   const ok = new Uint8Array(N);
   if (unidadeSel === "") ok.fill(1); else { const u = +unidadeSel; for (let i = 0; i < N; i++) if (unidadesDe(i).includes(u)) ok[i] = 1; }
-  const sb = bm25(q, ok), se = await semantica(q, ok);
-  const pts = new Map();
-  topo(sb, 1000).forEach((i, r) => pts.set(i, (pts.get(i) || 0) + 1 / (60 + r)));
-  if (se) topoSem(se, 1000).forEach((i, r) => pts.set(i, (pts.get(i) || 0) + 1 / (60 + r)));
-  ranking = [...pts.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX_RES).map(([i]) => i);
+  const se = await semantica(q, ok);
+  if (!se) ranking = topo(bm25(q, ok), MAX_RES);   // modelo ainda carregando: palavras do título
+  else {
+    const cand = topoSem(se.s, CANDIDATOS);
+    try { ranking = (await reordenar(cand, se.v)).slice(0, MAX_RES); }
+    catch (err) { console.warn(err); ranking = cand.slice(0, MAX_RES); }
+  }
+  if (q !== ultima) return;  // chegou outra pergunta enquanto esta era processada
   mostrar();
 }
 
@@ -331,7 +358,7 @@ function mostrar() {
   abas();
   const lista = ranking.filter(i => !filtro || TIPOS[IDX.k[i]] === filtro);
   const alvo = unidadeSel === "" ? "toda a Embrapa" : INFO.unidades[unidadeSel].nome;
-  $("info").textContent = (extrator ? "Mais próximos por significado e palavras" : "Busca por palavras do título (a busca por significado ainda está carregando)") + ` · ${alvo}`;
+  $("info").textContent = (extrator ? "Mais próximos por significado" : "Busca por palavras do título (a busca por significado ainda está carregando)") + ` · ${alvo}`;
   $("vermais").hidden = lista.length <= mostrados;
   if (!lista.length) { $("lista").innerHTML = `<p class="vazio">Nada encontrado. Tente descrever de outro jeito${unidadeSel !== "" ? " ou buscar em toda a Embrapa" : ""}.</p>`; return; }
   $("lista").innerHTML = lista.slice(0, mostrados).map(i => {

@@ -32,10 +32,31 @@ documento esperado aos 4 primeiros em 22 de 23 perguntas (vetores completos cent
 
 A pergunta não é comprimida: o vetor dela (centrado na média dos documentos) é comparado aos bits de cada documento.
 
-## Busca
+## Busca (versão 2, 06/10/2026)
 
-Busca híbrida: significado (acima) + BM25 nos títulos, com fusão pela posição de cada documento nas duas listas
-(Reciprocal Rank Fusion, k = 60). O filtro de unidade é aplicado antes do ranking.
+Em dois passos, só por significado:
+1. A pergunta (vetor completo, centrado na média) é comparada aos bits de todos os documentos (filtrados pela
+   unidade escolhida) e seleciona os 120 mais próximos.
+2. A página lê, por requisições de trecho (HTTP Range), só as linhas desses 120 documentos nos arquivos de vetores
+   completos em int8 (`dados/vet/`, 142 MB no total, nunca baixados inteiros) e os reordena pelo cosseno.
+
+A busca por palavras do título (BM25) só é usada enquanto o modelo de significado carrega.
+
+**Por que a mudança.** A versão 1 combinava significado (só os bits) e palavras do título com peso igual (RRF).
+Na análise de 06/10, as palavras do título puxavam para o topo títulos curtos sem resumo e títulos sem relação
+("plantas que ajudam a recuperar solo cansado" trazia "Extrativismo ou plantio: recuperar o tempo perdido").
+Gabarito da Territorial (23 perguntas), documento esperado em 1º lugar / entre os 4 primeiros:
+
+| Variante | Filtro Territorial | Toda a Embrapa |
+|---|---|---|
+| v1: bits + palavras do título (RRF, pesos iguais) | 14 / 22 | 8 / 15 |
+| bits + palavras com peso 0,3 | 18 / 22 | 12 / 15 |
+| só bits | 16 / 23 | 12 / 17 |
+| **v2: bits → 120 candidatos → vetor completo int8** | **21 / 23** | **15 / 19** |
+| vetor completo em todos (teto) | 22 / 23 | 15 / 19 |
+
+Reordenar 50 candidatos já dá o mesmo resultado que 300; 120 é folga. Somar as palavras do título à v2 piora
+(peso 0,3: 18 e 11 em 1º lugar).
 
 ## Resultado na página publicada (exportação de outubro de 2026)
 
@@ -54,8 +75,7 @@ Na Embrapa toda, documentos de outras unidades concorrem — e muitas vezes tamb
 traz a Embrapa Pesca e Aquicultura). Perguntas gerais testadas trazem as unidades esperadas (lagarta-do-cartucho:
 Milho e Sorgo e Clima Temperado; mudas de açaí: Amapá, Acre e Roraima; cultivares de feijão: Arroz e Feijão e Meio-Norte).
 
-Próximo ajuste a testar: publicações com título curto e sem resumo sobem demais quando as palavras do título batem
-(peso da busca por palavras na fusão).
+Os números acima são da versão 1 (ver "Busca").
 
 O aviso de "relação fraca" da versão da Territorial foi retirado: na base inteira a semelhança do primeiro
 resultado é igual para perguntas com e sem resposta (0,894 × 0,895), então não serve como sinal.

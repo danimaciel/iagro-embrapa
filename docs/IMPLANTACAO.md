@@ -11,7 +11,8 @@ nem coleta de dados de quem usa. A busca roda no navegador.
 3. Recomendado no servidor: compressão gzip/brotli para `.json` (o índice cai de cerca de 20 MB para cerca
    de 6 MB) e cache longo para `dados/`.
 
-Tamanho atual: `bits.bin` cerca de 17 MB, `indice.json` cerca de 20 MB, `det/` cerca de 200 MB em cerca de
+Tamanho atual: `bits.bin` cerca de 18 MB, `indice.json` cerca de 20 MB, `vet/` 142 MB em 6 arquivos (lidos só em trechos;
+O servidor precisa aceitar requisições HTTP Range, como fazem nginx, Apache e IIS por padrão), `det/` cerca de 200 MB em cerca de
 700 arquivos pequenos (só os blocos dos resultados exibidos são baixados).
 
 ## 2. Retirar dependências externas (se a política exigir)
