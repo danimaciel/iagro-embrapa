@@ -126,6 +126,13 @@ footer p{margin:0 0 6px;max-width:82ch}
   .busca select{flex:1;min-width:0;width:0;border-left:0;border-top:1px solid #e2e0d4;padding:10px 6px;max-width:none}
   .busca button{padding:10px 16px}
 }
+.marca .sobre{all:unset;display:flex;align-items:center;gap:10px;cursor:pointer;border-radius:8px}
+.marca .sobre:focus-visible{outline:2px solid var(--leaf);outline-offset:4px}
+dialog{max-width:560px;border:0;border-radius:16px;padding:22px 24px;background:var(--surface);color:var(--ink);box-shadow:0 20px 60px #0008}
+dialog::backdrop{background:#0008}
+dialog h2{font:650 22px Fraunces,Georgia,serif;margin:0 0 10px}
+dialog p{margin:0 0 10px}
+dialog .fechar{font:600 14px Inter,sans-serif;border:0;border-radius:8px;background:var(--green-700);color:#fff;padding:8px 16px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -133,10 +140,12 @@ footer p{margin:0 0 6px;max-width:82ch}
   <svg class="relevo" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true" id="relevo"></svg>
   <div class="wrap">
     <div class="marca">
-      <span class="selo" aria-hidden="true">
+      <button type="button" class="sobre" id="sobreBtn" aria-haspopup="dialog" title="Sobre o iAgro">
+        <span class="selo" aria-hidden="true">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e9f3d6" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg>
       </span>
-      iAgro <small>· Embrapa</small>
+        iAgro <small>· Embrapa</small>
+      </button>
       <span class="demo">Demonstração com dados públicos</span>
     </div>
     <h1>Toda a produção da Embrapa, <em>do jeito que você pergunta.</em></h1>
@@ -199,6 +208,14 @@ footer p{margin:0 0 6px;max-width:82ch}
   <p>Método: busca por significado com o modelo multilingual-e5-base, em dois passos (vetores de 1 bit por dimensão selecionam 120 candidatos; o vetor completo os reordena). A busca por palavras do título só é usada enquanto o modelo carrega. Publicações depositadas por mais de uma unidade aparecem uma vez só, com todas as unidades. Código aberto em <a href="https://github.com/danimaciel/iagro-embrapa">github.com/danimaciel/iagro-embrapa</a>. Piloto de uma unidade: <a href="https://danimaciel.github.io/iagro/">iAgro Embrapa Territorial</a>.</p>
 </footer>
 
+<dialog id="sobre" aria-labelledby="sobreTitulo">
+  <h2 id="sobreTitulo">Sobre o iAgro</h2>
+  <p>O iAgro é um projeto experimental, feito com dados públicos da Embrapa, que busca apoiar o desenvolvimento da agricultura brasileira facilitando o acesso às tecnologias e aos conhecimentos produzidos pela pesquisa agropecuária pública.</p>
+  <p>Não é um serviço oficial da Embrapa. Respostas geradas por inteligência artificial podem conter erros: confira sempre a publicação original.</p>
+  <p style="font-size:14px;color:var(--muted)">Também: <a href="https://danimaciel.github.io/iagro-conversa/">iAgro Conversa</a> (Embrapa Territorial, com IA) · <a href="https://github.com/danimaciel/iagro-embrapa">código aberto</a></p>
+  <form method="dialog"><button class="fechar">Fechar</button></form>
+</dialog>
+
 <script type="module">
 const EXEMPLOS = [
   "Controle biológico da lagarta-do-cartucho no milho",
@@ -222,6 +239,8 @@ const tokens = s => norm(s).match(/[a-z0-9]+/g)?.filter(t => t.length > 1 && !PA
 let INFO, IDX, BITS, N, extrator = null, POST = null, LEN = null, MEDIA_LEN = 0;
 let ultima = "", unidadeSel = "", filtro = "", ranking = [], mostrados = POR_PAGINA, NOTA = new Map();
 const blocos = new Map();
+
+document.getElementById("sobreBtn").addEventListener("click", () => document.getElementById("sobre").showModal());
 
 /* ---------- relevo do topo */
 (function relevo() {
