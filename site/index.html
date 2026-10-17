@@ -114,6 +114,23 @@ h2{font:650 clamp(24px,3.4vw,32px)/1.15 Fraunces,Georgia,serif;margin:0 0 8px}
 .unidades{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .unidades button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:99px;padding:4px 10px;cursor:pointer}
 .unidades button i{font-style:normal;color:var(--muted);margin-left:4px}
+.filtros{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;max-width:820px}
+.filtros select{font:inherit;font-size:14px;border-radius:10px;border:1px solid #ffffff44;background:#ffffff14;color:var(--hero-ink);padding:8px 10px;max-width:260px;flex:1 1 180px}
+.filtros select option,.filtros select optgroup{color:#17251d}
+.filtros button{font:600 13px Inter,sans-serif;border:1px solid #ffffff55;border-radius:10px;background:transparent;color:var(--hero-ink);padding:8px 12px;cursor:pointer}
+.etiquetas{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0 4px}
+.etq{font-size:12px;border-radius:99px;padding:2px 8px;background:var(--bg);border:1px solid var(--line);color:var(--ink);cursor:pointer}
+.etq.prod{border-color:#3f9a5c66}
+.etq.uf{border-color:#2f6f9f55}
+.etq.bio{border-color:#c8892a66}
+.mapaRes{display:grid;grid-template-columns:minmax(220px,340px) 1fr;gap:16px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:14px}
+.mapaRes svg{width:100%;height:auto;display:block}
+.mapaRes path{stroke:var(--surface);stroke-width:1.2;cursor:pointer}
+.mapaRes path:hover{stroke:var(--ink);stroke-width:2}
+.mapaRes h4{margin:0 0 6px;font-size:15px}
+.mapaRes small{color:var(--muted);font-size:12.5px}
+.mapaRes .top{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+@media (max-width:720px){ .mapaRes{grid-template-columns:1fr} .filtros select{max-width:none} }
 footer{border-top:1px solid var(--line);margin-top:44px;padding:22px 0 40px;font-size:13.5px;color:var(--muted)}
 footer p{margin:0 0 6px;max-width:82ch}
 @media (max-width:720px){
@@ -155,6 +172,12 @@ dialog .fechar{font:600 14px Inter,sans-serif;border:0;border-radius:8px;backgro
       <select id="unidade" aria-label="Unidade"><option value="">Toda a Embrapa</option></select>
       <button type="submit">Buscar</button>
     </form>
+    <div class="filtros" id="filtros" hidden>
+      <select id="fProduto" aria-label="Produto"><option value="">Todos os produtos</option></select>
+      <select id="fEstado" aria-label="Estado"><option value="">Todos os estados</option></select>
+      <select id="fBioma" aria-label="Bioma"><option value="">Todos os biomas</option></select>
+      <button type="button" id="fLimpar" hidden>Limpar filtros</button>
+    </div>
     <div class="exemplos" id="exemplos"><span>Experimente:</span></div>
     <div class="estado carregando" id="estado"><span class="ponto"></span><span id="estadoTxt">Carregando a base…</span></div>
     <div class="numeros" id="numeros"></div>
@@ -165,6 +188,10 @@ dialog .fechar{font:600 14px Inter,sans-serif;border:0;border-radius:8px;backgro
   <div class="barra">
     <div class="abas" id="abas" role="group" aria-label="Filtrar por tipo"></div>
     <div class="info" id="info"></div>
+  </div>
+  <div class="mapaRes" id="mapaRes" hidden>
+    <svg id="mapaSvg" role="img" aria-label="Mapa do Brasil com o número de resultados que citam cada estado"></svg>
+    <div><h4>Onde estão os resultados</h4><small id="mapaLegenda"></small><div class="top" id="mapaTop"></div></div>
   </div>
   <div class="lista" id="lista" aria-live="polite"></div>
   <button class="vermais" id="vermais" hidden>Ver mais resultados</button>
@@ -237,6 +264,7 @@ const PARADAS = new Set("a o as os de da do das dos e em no na nos nas um uma pa
 const tokens = s => norm(s).match(/[a-z0-9]+/g)?.filter(t => t.length > 1 && !PARADAS.has(t)) ?? [];
 
 let INFO, IDX, BITS, N, extrator = null, POST = null, LEN = null, MEDIA_LEN = 0;
+let EXPLORAR_TOTAL = null;
 let ultima = "", unidadeSel = "", filtro = "", ranking = [], mostrados = POR_PAGINA, NOTA = new Map();
 const blocos = new Map();
 
@@ -332,12 +360,23 @@ function topoSem(s, k) {
 }
 
 async function buscar(q) {
-  q = q.trim(); if (!q) return;
+  q = (q || "").trim(); if (!q && !temFiltro()) return;
   ultima = q; mostrados = POR_PAGINA;
-  const params = new URLSearchParams({q}); if (unidadeSel !== "") params.set("u", INFO.unidades[unidadeSel].nome);
+  const params = new URLSearchParams(); if (q) params.set("q", q);
+  if (unidadeSel !== "") params.set("u", INFO.unidades[unidadeSel].nome);
+  if (fP !== "") params.set("p", INFO.produtos[fP].id);
+  if (fE !== "") params.set("e", INFO.estados[fE].uf);
+  if (fB !== "") params.set("b", INFO.biomas[fB].nome);
   history.replaceState(null, "", "#" + params.toString());
   const ok = new Uint8Array(N);
-  if (unidadeSel === "") ok.fill(1); else { const u = +unidadeSel; for (let i = 0; i < N; i++) if (unidadesDe(i).includes(u)) ok[i] = 1; }
+  const u = unidadeSel === "" ? null : +unidadeSel;
+  for (let i = 0; i < N; i++) if ((u === null || unidadesDe(i).includes(u)) && passa(i)) ok[i] = 1;
+  if (!q) {  // explorar: só filtros, mais recentes primeiro
+    const idx = []; for (let i = 0; i < N; i++) if (ok[i]) idx.push(i);
+    idx.sort((a, b) => IDX.a[b] - IDX.a[a]);
+    EXPLORAR_TOTAL = idx.length; ranking = idx.slice(0, MAX_RES); NOTA = new Map(); mostrar(); return;
+  }
+  EXPLORAR_TOTAL = null;
   const se = await semantica(q, ok);
   let res = [], nota = new Map();
   if (!se) res = topo(bm25(q, ok), MAX_RES);   // modelo ainda carregando: palavras do título
@@ -349,6 +388,50 @@ async function buscar(q) {
   if (q !== ultima) return;  // chegou outra pergunta enquanto esta era processada
   ranking = res; NOTA = nota;
   mostrar();
+}
+
+/* ---------- produtos e localização (do Observatório de Pesquisa da Embrapa) */
+const lst = v => v === undefined || v === -1 ? [] : Array.isArray(v) ? v : [v];
+let fP = "", fE = "", fB = "", MAPA = null;
+const temFiltro = () => fP !== "" || fE !== "" || fB !== "";
+function passa(i) {
+  if (fP !== "" && !lst(IDX.p?.[i]).includes(+fP)) return false;
+  if (fE !== "" && !lst(IDX.e?.[i]).includes(+fE)) return false;
+  if (fB !== "" && !lst(IDX.b?.[i]).includes(+fB)) return false;
+  return true;
+}
+function etiquetas(i) {
+  if (!INFO.produtos) return "";
+  const pr = lst(IDX.p[i]).slice(0, 3).map(k => `<span class="etq prod" data-fp="${k}" title="Filtrar por ${esc(INFO.produtos[k].nome)}">${esc(INFO.produtos[k].nome)}</span>`);
+  const uf = lst(IDX.e[i]); const ufs = uf.slice(0, 5).map(k => `<span class="etq uf" data-fe="${k}" title="Filtrar por ${INFO.estados[k].uf}">${INFO.estados[k].uf}</span>`);
+  if (uf.length > 5) ufs.push(`<span class="etq uf">+${uf.length - 5}</span>`);
+  const bi = lst(IDX.b[i]).slice(0, 2).map(k => `<span class="etq bio" data-fb="${k}" title="Filtrar por ${esc(INFO.biomas[k].nome)}">${esc(INFO.biomas[k].nome)}</span>`);
+  const todas = [...pr, ...ufs, ...bi];
+  return todas.length ? `<div class="etiquetas">${todas.join("")}</div>` : "";
+}
+function desenharMapa(lista) {
+  if (!MAPA || !INFO.estados) { $("mapaRes").hidden = true; return; }
+  const cont = new Array(INFO.estados.length).fill(0);
+  lista.forEach(i => lst(IDX.e[i]).forEach(k => cont[k]++));
+  const max = Math.max(...cont), com = lista.filter(i => lst(IDX.e[i]).length).length;
+  if (!max) { $("mapaRes").hidden = true; return; }
+  $("mapaRes").hidden = false;
+  $("mapaSvg").setAttribute("viewBox", `0 0 ${MAPA.largura} ${MAPA.altura}`);
+  $("mapaSvg").innerHTML = INFO.estados.map((e, k) => {
+    const g = MAPA.estados[e.uf]; if (!g) return "";
+    const t = cont[k] / max, cor = cont[k] ? `color-mix(in srgb, var(--green-700) ${Math.round(20 + 80 * t)}%, var(--bg))` : "var(--line)";
+    return `<path d="${g.d}" fill="${cor}" data-fe="${k}"><title>${esc(g.nome)}: ${cont[k]} resultado(s)</title></path>`;
+  }).join("");
+  $("mapaLegenda").textContent = `${com} dos ${lista.length} resultados citam algum estado. Cor mais forte = mais resultados. Clique num estado para filtrar.`;
+  $("mapaTop").innerHTML = cont.map((n, k) => [n, k]).filter(([n]) => n).sort((a, b) => b[0] - a[0]).slice(0, 6)
+    .map(([n, k]) => `<span class="etq uf" data-fe="${k}">${INFO.estados[k].uf} · ${n}</span>`).join("");
+}
+function aplicarFiltro(qual, valor) {
+  if (qual === "p") { fP = valor; $("fProduto").value = valor; }
+  if (qual === "e") { fE = valor; $("fEstado").value = valor; }
+  if (qual === "b") { fB = valor; $("fBioma").value = valor; }
+  $("fLimpar").hidden = !temFiltro();
+  buscar($("q").value);  // vale o que está na caixa: vazia = explorar só pelos filtros
 }
 
 /* ---------- detalhes sob demanda */
@@ -382,7 +465,10 @@ function mostrar() {
   abas();
   const lista = ranking.filter(i => !filtro || TIPOS[IDX.k[i]] === filtro);
   const alvo = unidadeSel === "" ? "toda a Embrapa" : INFO.unidades[unidadeSel].nome;
-  $("info").textContent = (extrator ? "Mais próximos por significado" : "Busca por palavras do título (a busca por significado ainda está carregando)") + ` · ${alvo}`;
+  const filtrosTxt = [fP !== "" ? INFO.produtos[fP].nome : "", fE !== "" ? INFO.estados[fE].uf : "", fB !== "" ? INFO.biomas[fB].nome : ""].filter(Boolean).join(" · ");
+  $("info").textContent = (EXPLORAR_TOTAL !== null ? `${fmt(EXPLORAR_TOTAL)} documentos com os filtros (mostrando os ${Math.min(EXPLORAR_TOTAL, MAX_RES)} mais recentes)`
+    : extrator ? "Mais próximos por significado" : "Busca por palavras do título (a busca por significado ainda está carregando)") + ` · ${alvo}` + (filtrosTxt ? ` · ${filtrosTxt}` : "");
+  desenharMapa(lista);
   $("vermais").hidden = lista.length <= mostrados;
   if (!lista.length) { $("lista").innerHTML = `<p class="vazio">Nada encontrado. Tente descrever de outro jeito${unidadeSel !== "" ? " ou buscar em toda a Embrapa" : ""}.</p>`; return; }
   $("lista").innerHTML = lista.slice(0, mostrados).map(i => {
@@ -393,6 +479,7 @@ function mostrar() {
       <div class="meta"><span class="tipo">${NOME_TIPO[t]}</span><span>${IDX.a[i] || "ano não informado"}</span><span class="unid">${esc(nomesUnidades(i))}</span><span class="det-d"></span>
         ${p != null ? `<span class="prox" title="Proximidade de significado entre o documento e a sua pergunta, comparada aos demais documentos. Não garante que o documento responda à pergunta.">proximidade <i style="--p:${p}%"></i></span>` : ""}</div>
       <h3><a class="det-l" target="_blank" rel="noopener">${destacar(IDX.t[i], ultima)}</a></h3>
+      ${etiquetas(i)}
       <p class="espera">Carregando resumo…</p>
       <div class="rodape"></div></article>`;
   }).join("");
@@ -417,6 +504,17 @@ function mostrar() {
 }
 
 $("form").addEventListener("submit", e => { e.preventDefault(); buscar($("q").value); });
+$("fProduto").addEventListener("change", e => aplicarFiltro("p", e.target.value));
+$("fEstado").addEventListener("change", e => aplicarFiltro("e", e.target.value));
+$("fBioma").addEventListener("change", e => aplicarFiltro("b", e.target.value));
+$("fLimpar").addEventListener("click", () => { fP = fE = fB = ""; ["fProduto", "fEstado", "fBioma"].forEach(x => $(x).value = ""); $("fLimpar").hidden = true; if ($("q").value.trim()) buscar($("q").value); else { $("resultados").hidden = true; history.replaceState(null, "", "#"); } });
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-fp],[data-fe],[data-fb]"); if (!t) return;
+  if (t.dataset.fp !== undefined) aplicarFiltro("p", t.dataset.fp);
+  else if (t.dataset.fe !== undefined) aplicarFiltro("e", t.dataset.fe);
+  else aplicarFiltro("b", t.dataset.fb);
+  $("resultados").scrollIntoView({behavior: "smooth"});
+});
 $("unidade").addEventListener("change", e => { unidadeSel = e.target.value; if (ultima) buscar(ultima); });
 $("abas").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; filtro = b.dataset.f; mostrados = POR_PAGINA; mostrar(); });
 $("vermais").addEventListener("click", () => { mostrados += POR_PAGINA; mostrar(); });
@@ -464,8 +562,25 @@ async function iniciar() {
   ]);
   IDX = idx; BITS = new Uint8Array(bits);
   indexar();
+  if (INFO.produtos) {
+    const cats = {}; INFO.produtos.forEach((p, k) => (cats[p.cat] ||= []).push([p, k]));
+    $("fProduto").insertAdjacentHTML("beforeend", Object.entries(cats).sort((a, b) => a[0].localeCompare(b[0], "pt-BR")).map(([c, ps]) =>
+      `<optgroup label="${esc(c)}">${ps.sort((a, b) => b[0].n - a[0].n).map(([p, k]) => `<option value="${k}">${esc(p.nome)} (${fmt(p.n)})</option>`).join("")}</optgroup>`).join(""));
+    $("fEstado").insertAdjacentHTML("beforeend", INFO.estados.map((e, k) => [e, k]).sort((a, b) => a[0].uf.localeCompare(b[0].uf)).map(([e, k]) => `<option value="${k}">${e.uf} (${fmt(e.n)})</option>`).join(""));
+    $("fBioma").insertAdjacentHTML("beforeend", INFO.biomas.map((b, k) => `<option value="${k}">${esc(b.nome)} (${fmt(b.n)})</option>`).join(""));
+    $("filtros").hidden = false;
+    fetch("estados.json").then(r => r.json()).then(m => { MAPA = m; if (ranking.length) desenharMapa(ranking); }).catch(() => {});
+  }
   const h = new URLSearchParams(location.hash.slice(1));
   if (h.get("u")) { const i = INFO.unidades.findIndex(u => u.nome === h.get("u")); if (i >= 0) { unidadeSel = String(i); $("unidade").value = unidadeSel; } }
+  if (INFO.produtos) {
+    const ip = INFO.produtos.findIndex(p => p.id === h.get("p")), ie = INFO.estados.findIndex(e => e.uf === h.get("e")), ib = INFO.biomas.findIndex(b => b.nome === h.get("b"));
+    if (ip >= 0) { fP = String(ip); $("fProduto").value = fP; }
+    if (ie >= 0) { fE = String(ie); $("fEstado").value = fE; }
+    if (ib >= 0) { fB = String(ib); $("fBioma").value = fB; }
+    $("fLimpar").hidden = !temFiltro();
+    if (!h.get("q") && temFiltro()) buscar("");
+  }
   estado("Busca por palavras pronta. Preparando a busca por significado (cerca de 110 MB, só na primeira visita)…", "carregando");
   if (h.get("q")) { $("q").value = h.get("q"); buscar(h.get("q")); }
   try {

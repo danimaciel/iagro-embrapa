@@ -93,3 +93,28 @@ os resultados entre si; não indica se a base responde à pergunta (perguntas fo
 
 O aviso de "relação fraca" da versão da Territorial foi retirado: na base inteira a semelhança do primeiro
 resultado é igual para perguntas com e sem resposta (0,894 × 0,895), então não serve como sinal.
+
+
+## Produtos e localização (desde 17/10/2026)
+
+Os produtos agropecuários e os lugares de cada documento vêm do **Observatório de Pesquisa da Embrapa**, que é a
+fonte única dessas marcações para os três iAgro. A cada atualização mensal, ele publica a release pública
+`enriquecimento-AAAA-MM` em danimaciel/observatorio_embrapa, com: `enriquecimento.csv.gz` (produtos, estados,
+municípios e biomas por documento), `registro_obra.csv.gz` (registro de publicação → obra) e `produtos.csv`
+(taxonomia). O fluxo deste repositório baixa a release mais recente antes de gerar os dados da página.
+
+- **Produtos:** taxonomia de 104 produtos com base nas categorias oficiais do IBGE (PAM, PPM e PEVS), grupo de
+  atividade CNAE e categorias amplas. Só entram nos filtros e nas etiquetas os produtos de força **principal**
+  (termo no título ou nas palavras-chave); na validação do Observatório, 58 de 60 estavam corretos (avaliação
+  prévia, em conferência pela usuária). Método completo na nota do Observatório
+  (`documentacao/Produtos_e_localizacao_2026-10-17`).
+- **Estados:** citados no texto ou deduzidos do município citado (confiança alta ou média; homônimo só com o estado
+  confirmado no texto). **Biomas:** declarados nas soluções tecnológicas ou bioma predominante do município citado.
+- **Na página:** filtros por produto (agrupados por categoria), estado e bioma, combináveis com a busca e com a
+  unidade; com a caixa de pergunta vazia, os filtros sozinhos listam os documentos, dos mais recentes aos mais
+  antigos; etiquetas em cada resultado (clicáveis); mapa por estado dos resultados exibidos (clicável). Os filtros
+  ficam no endereço (`#p=acai&e=PA`), para compartilhar.
+- **Mapa:** contornos simplificados das UFs do IBGE (API de malhas, qualidade mínima) em `site/estados.json`,
+  gerados por `pipeline/mapa_estados.py`.
+- Documentos sem marcação (sem produto ou lugar no título, resumo e palavras-chave) não aparecem quando um filtro
+  está ativo. Documentos novos do mês só ganham marcação depois que o Observatório processa a mesma exportação.

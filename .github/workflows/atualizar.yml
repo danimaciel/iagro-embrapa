@@ -124,6 +124,18 @@ jobs:
             gh release create "$CACHE_TAG" --title "Cache de vetores (uso interno do fluxo)" \
               --notes "Vetores multilingual-e5-base da base do iAgro. Atualizado automaticamente."
           gh release upload "$CACHE_TAG" dados/cache/e5.npy dados/cache/e5_hash.parquet --clobber
+      - name: Produtos e localização (Observatório de Pesquisa da Embrapa)
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          # release pública mais recente "enriquecimento-AAAA-MM" do Observatório; sem ela, a página sai sem filtros
+          TAG=$(gh release list --repo danimaciel/observatorio_embrapa --limit 50 --json tagName -q '.[].tagName' | grep '^enriquecimento-' | sort | tail -n 1 || true)
+          if [ -n "$TAG" ]; then
+            mkdir -p dados/enriquecimento
+            gh release download "$TAG" --repo danimaciel/observatorio_embrapa -D dados/enriquecimento --clobber
+            echo "enriquecimento: $TAG"
+          else
+            echo "sem release de enriquecimento no Observatório"
+          fi
       - name: Gerar dados da página
         run: python pipeline/site_dados.py ${{ needs.preparar.outputs.mes }}
       - uses: actions/configure-pages@v5

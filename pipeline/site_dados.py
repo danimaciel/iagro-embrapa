@@ -10,6 +10,10 @@ Busca em dois passos: os bits (18 MB, baixados inteiros) selecionam os 120 candi
 lê só as linhas desses candidatos nos arquivos vet/ (requisições de trecho, HTTP Range) e os reordena com o
 vetor completo. Nos testes, o resultado é igual ao de usar o vetor completo em tudo (ver docs/METODO.md).
 
+Produtos e localização (desde 17/10/2026): vêm do Observatório de Pesquisa da Embrapa, que publica a cada mês
+o arquivo de resultados (release "enriquecimento-AAAA-MM" em danimaciel/observatorio_embrapa), baixado para
+dados/enriquecimento/ pelo fluxo. Só produtos de força "principal" (título ou palavras-chave) entram nos filtros.
+
 Uso:  python pipeline/site_dados.py 2026-10
 """
 import json
@@ -27,6 +31,33 @@ BLOCO = 256
 LINHAS_VET = 32768  # vetores int8 em arquivos de 24 MB; a página lê só as linhas dos candidatos
 TIPOS = ["PUB", "TEC", "PRJ"]
 MESES = "janeiro fevereiro março abril maio junho julho agosto setembro outubro novembro dezembro".split()
+
+
+UFS = ["AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR",
+       "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO"]
+
+
+def enriquecimento(b: pd.DataFrame):
+    """Produtos (principais), estados e biomas de cada documento, ligados pelo identificador do Redape."""
+    pasta = DADOS / "enriquecimento"
+    if not (pasta / "enriquecimento.csv.gz").exists():
+        print("sem arquivo de enriquecimento: página sem produtos e localização")
+        return None
+    e = pd.read_csv(pasta / "enriquecimento.csv.gz", dtype=str).fillna("").set_index("doc_uid")
+    reg = pd.read_csv(pasta / "registro_obra.csv.gz", dtype=str)
+    obra = dict(zip(reg.registro.str[2:], reg.obra_id))           # id do registro de publicação -> obra
+    tax = pd.read_csv(pasta / "produtos.csv", dtype=str).fillna("")
+
+    def uid(cod):
+        t, n = cod.split()
+        return obra.get(n, "OB:" + n) if t == "PUB" else ("P:" if t == "PRJ" else "T:") + n
+    lin = e.reindex([uid(c) for c in b.codigo]).fillna("")
+    return lin, tax
+
+
+def lista(valores: str, idx: dict):
+    v = [idx[x] for x in valores.split(";") if x in idx]
+    return -1 if not v else v[0] if len(v) == 1 else v
 
 
 def main(mes: str) -> None:
@@ -62,6 +93,30 @@ def main(mes: str) -> None:
         "k": [TIPOS.index(t) for t in b.tipo],
         "u": [[iu[u] for u in us] if len(us) != 1 else iu[us[0]] for us in b.unidades],
     }
+    extra = {}
+    enr = enriquecimento(b)
+    if enr is not None:
+        lin, tax = enr
+        usados = {x for v in lin.produtos for x in v.split(";") if x}
+        tax = tax[tax.produto_id.isin(usados)].reset_index(drop=True)
+        ip = {pid: i for i, pid in enumerate(tax.produto_id)}
+        ie = {uf: i for i, uf in enumerate(UFS)}
+        biomas = sorted({x for v in lin.biomas for x in v.split(";") if x})
+        ib = {x: i for i, x in enumerate(biomas)}
+        indice["p"] = [lista(v, ip) for v in lin.produtos]
+        indice["e"] = [lista(v, ie) for v in lin.ufs]
+        indice["b"] = [lista(v, ib) for v in lin.biomas]
+        conta = lambda col, idx: pd.Series([x for v in lin[col] for x in v.split(";") if x in idx]).value_counts()
+        cp, ce, cb = conta("produtos", ip), conta("ufs", ie), conta("biomas", ib)
+        extra = {
+            "produtos": [{"id": r.produto_id, "nome": r.produto, "cat": r.categoria_ampla, "n": int(cp.get(r.produto_id, 0))}
+                         for r in tax.itertuples()],
+            "estados": [{"uf": uf, "n": int(ce.get(uf, 0))} for uf in UFS],
+            "biomas": [{"nome": x, "n": int(cb.get(x, 0))} for x in biomas],
+            "fonte_produtos": "Observatório de Pesquisa da Embrapa (taxonomia com base IBGE PAM/PPM/PEVS)",
+        }
+        print(f"enriquecimento: {sum(v != -1 for v in indice['p']):,} documentos com produto principal, "
+              f"{sum(v != -1 for v in indice['e']):,} com estado, {sum(v != -1 for v in indice['b']):,} com bioma")
     (SAIDA / "indice.json").write_text(json.dumps(indice, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
     for k in range(0, len(b), BLOCO):
@@ -92,6 +147,7 @@ def main(mes: str) -> None:
         "por_ano": {int(a): int(n) for a, n in anos.value_counts().sort_index().items()},
         "unidades": [{"nome": u, "n": int(cont_u.get(u, 0))} for u in unidades],
         "media": [round(float(x), 6) for x in mu],
+        **extra,
     }
     (SAIDA / "info.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
     tam = sum(f.stat().st_size for f in SAIDA.rglob("*") if f.is_file()) / 1e6
