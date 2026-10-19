@@ -11,9 +11,6 @@ on:
         description: "Exportação AAAA-MM (vazio = mais recente)"
         required: false
         default: ""
-  push:
-    branches: [main]
-    paths: ["site/**"]     # mudança só na página: republica sem recalcular nada novo
 
 permissions:
   contents: write   # anexar o cache de vetores na release
@@ -138,6 +135,11 @@ jobs:
           fi
       - name: Gerar dados da página
         run: python pipeline/site_dados.py ${{ needs.preparar.outputs.mes }}
+      - name: Guardar os dados da página (para publicar só a página depois, em 1 a 2 minutos)
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          tar -czf site-dados.tar.gz -C site dados
+          gh release upload "$CACHE_TAG" site-dados.tar.gz --clobber
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: site }

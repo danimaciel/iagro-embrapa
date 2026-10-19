@@ -264,7 +264,7 @@ const PARADAS = new Set("a o as os de da do das dos e em no na nos nas um uma pa
 const tokens = s => norm(s).match(/[a-z0-9]+/g)?.filter(t => t.length > 1 && !PARADAS.has(t)) ?? [];
 
 let INFO, IDX, BITS, N, extrator = null, POST = null, LEN = null, MEDIA_LEN = 0;
-let EXPLORAR_TOTAL = null;
+let EXPLORAR_TOTAL = null, CONTAGEM = null, PARA_MAPA = null;
 let ultima = "", unidadeSel = "", filtro = "", ranking = [], mostrados = POR_PAGINA, NOTA = new Map();
 const blocos = new Map();
 
@@ -370,13 +370,19 @@ async function buscar(q) {
   history.replaceState(null, "", "#" + params.toString());
   const ok = new Uint8Array(N);
   const u = unidadeSel === "" ? null : +unidadeSel;
-  for (let i = 0; i < N; i++) if ((u === null || unidadesDe(i).includes(u)) && passa(i)) ok[i] = 1;
+  const cont = {"": 0, PUB: 0, TEC: 0, PRJ: 0};
+  for (let i = 0; i < N; i++) {
+    if ((u !== null && !unidadesDe(i).includes(u)) || !passa(i)) continue;
+    const t = TIPOS[IDX.k[i]]; cont[""]++; cont[t]++;
+    if (!filtro || t === filtro) ok[i] = 1;   // a aba (tipo) é um filtro da busca, não um recorte dos 100 exibidos
+  }
   if (!q) {  // explorar: só filtros, mais recentes primeiro
     const idx = []; for (let i = 0; i < N; i++) if (ok[i]) idx.push(i);
     idx.sort((a, b) => IDX.a[b] - IDX.a[a]);
-    EXPLORAR_TOTAL = idx.length; ranking = idx.slice(0, MAX_RES); NOTA = new Map(); mostrar(); return;
+    EXPLORAR_TOTAL = idx.length; CONTAGEM = cont; PARA_MAPA = idx;
+    ranking = idx.slice(0, MAX_RES); NOTA = new Map(); mostrar(); return;
   }
-  EXPLORAR_TOTAL = null;
+  EXPLORAR_TOTAL = null; CONTAGEM = null; PARA_MAPA = null;
   const se = await semantica(q, ok);
   let res = [], nota = new Map();
   if (!se) res = topo(bm25(q, ok), MAX_RES);   // modelo ainda carregando: palavras do título
@@ -409,7 +415,7 @@ function etiquetas(i) {
   const todas = [...pr, ...ufs, ...bi];
   return todas.length ? `<div class="etiquetas">${todas.join("")}</div>` : "";
 }
-function desenharMapa(lista) {
+function desenharMapa(lista, rotulo = "resultados") {
   if (!MAPA || !INFO.estados) { $("mapaRes").hidden = true; return; }
   const cont = new Array(INFO.estados.length).fill(0);
   lista.forEach(i => lst(IDX.e[i]).forEach(k => cont[k]++));
@@ -420,11 +426,11 @@ function desenharMapa(lista) {
   $("mapaSvg").innerHTML = INFO.estados.map((e, k) => {
     const g = MAPA.estados[e.uf]; if (!g) return "";
     const t = cont[k] / max, cor = cont[k] ? `color-mix(in srgb, var(--green-700) ${Math.round(20 + 80 * t)}%, var(--bg))` : "var(--line)";
-    return `<path d="${g.d}" fill="${cor}" data-fe="${k}"><title>${esc(g.nome)}: ${cont[k]} resultado(s)</title></path>`;
+    return `<path d="${g.d}" fill="${cor}" data-fe="${k}"><title>${esc(g.nome)}: ${fmt(cont[k])} documento(s)</title></path>`;
   }).join("");
-  $("mapaLegenda").textContent = `${com} dos ${lista.length} resultados citam algum estado. Cor mais forte = mais resultados. Clique num estado para filtrar.`;
+  $("mapaLegenda").textContent = `${fmt(com)} dos ${fmt(lista.length)} ${rotulo} citam algum estado. Cor mais forte = mais documentos. Clique num estado para filtrar.`;
   $("mapaTop").innerHTML = cont.map((n, k) => [n, k]).filter(([n]) => n).sort((a, b) => b[0] - a[0]).slice(0, 6)
-    .map(([n, k]) => `<span class="etq uf" data-fe="${k}">${INFO.estados[k].uf} · ${n}</span>`).join("");
+    .map(([n, k]) => `<span class="etq uf" data-fe="${k}">${INFO.estados[k].uf} · ${fmt(n)}</span>`).join("");
 }
 function aplicarFiltro(qual, valor) {
   if (qual === "p") { fP = valor; $("fProduto").value = valor; }
@@ -451,9 +457,12 @@ function destacar(texto, q) {
   return out + esc(texto.slice(ult));
 }
 function abas() {
-  const cont = {"": ranking.length};
-  ranking.forEach(i => { const t = TIPOS[IDX.k[i]]; cont[t] = (cont[t] || 0) + 1; });
-  $("abas").innerHTML = ABAS.map(([k, n]) => `<button data-f="${k}" aria-pressed="${filtro === k}">${n}<i>${fmt(cont[k] || 0)}</i></button>`).join("");
+  if (CONTAGEM || !ultima) {
+    const c = CONTAGEM || {};
+    $("abas").innerHTML = ABAS.map(([k, n]) => `<button data-f="${k}" aria-pressed="${filtro === k}">${n}${CONTAGEM ? `<i>${fmt(c[k] || 0)}</i>` : ""}</button>`).join("");
+    return;
+  }
+  $("abas").innerHTML = ABAS.map(([k, n]) => `<button data-f="${k}" aria-pressed="${filtro === k}" title="Refaz a busca só entre ${n.toLowerCase()}">${n}</button>`).join("");
 }
 function nomesUnidades(i) {
   const us = unidadesDe(i).map(u => INFO.unidades[u].nome);
@@ -463,12 +472,13 @@ function nomesUnidades(i) {
 function mostrar() {
   $("resultados").hidden = false;
   abas();
-  const lista = ranking.filter(i => !filtro || TIPOS[IDX.k[i]] === filtro);
+  const lista = ranking;  // já vem filtrada pela aba (tipo)
   const alvo = unidadeSel === "" ? "toda a Embrapa" : INFO.unidades[unidadeSel].nome;
   const filtrosTxt = [fP !== "" ? INFO.produtos[fP].nome : "", fE !== "" ? INFO.estados[fE].uf : "", fB !== "" ? INFO.biomas[fB].nome : ""].filter(Boolean).join(" · ");
-  $("info").textContent = (EXPLORAR_TOTAL !== null ? `${fmt(EXPLORAR_TOTAL)} documentos com os filtros (mostrando os ${Math.min(EXPLORAR_TOTAL, MAX_RES)} mais recentes)`
-    : extrator ? "Mais próximos por significado" : "Busca por palavras do título (a busca por significado ainda está carregando)") + ` · ${alvo}` + (filtrosTxt ? ` · ${filtrosTxt}` : "");
-  desenharMapa(lista);
+  const tipoTxt = filtro ? ` · só ${ABAS.find(a => a[0] === filtro)[1].toLowerCase()}` : "";
+  $("info").textContent = (EXPLORAR_TOTAL !== null ? `${fmt(EXPLORAR_TOTAL)} documentos com os filtros${tipoTxt} (mostrando os ${Math.min(EXPLORAR_TOTAL, MAX_RES)} mais recentes)`
+    : (extrator ? "Mais próximos por significado" : "Busca por palavras do título (a busca por significado ainda está carregando)") + tipoTxt) + ` · ${alvo}` + (filtrosTxt ? ` · ${filtrosTxt}` : "");
+  desenharMapa(PARA_MAPA || lista, PARA_MAPA ? "documentos com os filtros" : "resultados exibidos");
   $("vermais").hidden = lista.length <= mostrados;
   if (!lista.length) { $("lista").innerHTML = `<p class="vazio">Nada encontrado. Tente descrever de outro jeito${unidadeSel !== "" ? " ou buscar em toda a Embrapa" : ""}.</p>`; return; }
   $("lista").innerHTML = lista.slice(0, mostrados).map(i => {
@@ -516,7 +526,7 @@ document.addEventListener("click", e => {
   $("resultados").scrollIntoView({behavior: "smooth"});
 });
 $("unidade").addEventListener("change", e => { unidadeSel = e.target.value; if (ultima) buscar(ultima); });
-$("abas").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; filtro = b.dataset.f; mostrados = POR_PAGINA; mostrar(); });
+$("abas").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; filtro = b.dataset.f; mostrados = POR_PAGINA; buscar($("q").value); });
 $("vermais").addEventListener("click", () => { mostrados += POR_PAGINA; mostrar(); });
 $("lista").addEventListener("click", e => {
   const b = e.target.closest(".mais"); if (!b) return;
@@ -569,7 +579,7 @@ async function iniciar() {
     $("fEstado").insertAdjacentHTML("beforeend", INFO.estados.map((e, k) => [e, k]).sort((a, b) => a[0].uf.localeCompare(b[0].uf)).map(([e, k]) => `<option value="${k}">${e.uf} (${fmt(e.n)})</option>`).join(""));
     $("fBioma").insertAdjacentHTML("beforeend", INFO.biomas.map((b, k) => `<option value="${k}">${esc(b.nome)} (${fmt(b.n)})</option>`).join(""));
     $("filtros").hidden = false;
-    fetch("estados.json").then(r => r.json()).then(m => { MAPA = m; if (ranking.length) desenharMapa(ranking); }).catch(() => {});
+    fetch("estados.json").then(r => r.json()).then(m => { MAPA = m; if (ranking.length) desenharMapa(PARA_MAPA || ranking, PARA_MAPA ? "documentos com os filtros" : "resultados exibidos"); }).catch(() => {});
   }
   const h = new URLSearchParams(location.hash.slice(1));
   if (h.get("u")) { const i = INFO.unidades.findIndex(u => u.nome === h.get("u")); if (i >= 0) { unidadeSel = String(i); $("unidade").value = unidadeSel; } }

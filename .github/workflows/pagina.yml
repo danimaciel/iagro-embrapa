@@ -1,0 +1,38 @@
+name: Publicar só a página
+
+# Mudança só na página (site/): publica em 1 a 2 minutos, reaproveitando os dados já processados
+# (anexo site-dados.tar.gz da release "cache-vetores", gravado pelo fluxo mensal "Atualizar base e publicar página").
+on:
+  push:
+    branches: [main]
+    paths: ["site/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dados da página já processados
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release download cache-vetores -p site-dados.tar.gz
+          tar -xzf site-dados.tar.gz -C site
+          ls site/dados | head
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+      - id: deploy
+        uses: actions/deploy-pages@v4
