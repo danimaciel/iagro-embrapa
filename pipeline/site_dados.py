@@ -111,6 +111,7 @@ def main(mes: str) -> None:
         conta = lambda col, idx: pd.Series([x for v in lin[col] for x in v.split(";") if x in idx]).value_counts()
         cp, ce, cb = conta("produtos", ip), conta("ufs", ie), conta("biomas", ib)
         temas = []
+        pasta = DADOS / "enriquecimento"
         if (pasta / "temas.csv").exists() and "tema" in lin.columns:
             rot = pd.read_csv(pasta / "temas.csv", dtype=str).set_index("tema_id").rotulo
             ct = lin.tema[lin.tema != ""].value_counts()
