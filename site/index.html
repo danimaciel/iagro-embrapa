@@ -181,6 +181,7 @@ dialog .fechar{font:600 14px Inter,sans-serif;border:0;border-radius:8px;backgro
       <select id="fProduto" aria-label="Produto"><option value="">Todos os produtos</option></select>
       <select id="fEstado" aria-label="Estado"><option value="">Todos os estados</option></select>
       <select id="fBioma" aria-label="Bioma"><option value="">Todos os biomas</option></select>
+      <select id="fTema" aria-label="Tema" hidden><option value="">Todos os temas</option></select>
       <button type="button" id="fLimpar" hidden>Limpar filtros</button>
     </div>
     <div class="exemplos" id="exemplos"><span>Experimente:</span></div>
@@ -372,6 +373,7 @@ async function buscar(q) {
   if (fP !== "") params.set("p", INFO.produtos[fP].id);
   if (fE !== "") params.set("e", INFO.estados[fE].uf);
   if (fB !== "") params.set("b", INFO.biomas[fB].nome);
+  if (fT !== "") params.set("t", INFO.temas[fT].id);
   history.replaceState(null, "", "#" + params.toString());
   const ok = new Uint8Array(N);
   const u = unidadeSel === "" ? null : +unidadeSel;
@@ -403,12 +405,13 @@ async function buscar(q) {
 
 /* ---------- produtos e localização (do Observatório de Pesquisa da Embrapa) */
 const lst = v => v === undefined || v === -1 ? [] : Array.isArray(v) ? v : [v];
-let fP = "", fE = "", fB = "", MAPA = null;
-const temFiltro = () => fP !== "" || fE !== "" || fB !== "";
+let fP = "", fE = "", fB = "", fT = "", MAPA = null;
+const temFiltro = () => fP !== "" || fE !== "" || fB !== "" || fT !== "";
 function passa(i) {
   if (fP !== "" && !lst(IDX.p?.[i]).includes(+fP)) return false;
   if (fE !== "" && !lst(IDX.e?.[i]).includes(+fE)) return false;
   if (fB !== "" && !lst(IDX.b?.[i]).includes(+fB)) return false;
+  if (fT !== "" && IDX.tm?.[i] !== +fT) return false;
   return true;
 }
 function etiquetas(i) {
@@ -441,6 +444,7 @@ function aplicarFiltro(qual, valor) {
   if (qual === "p") { fP = valor; $("fProduto").value = valor; }
   if (qual === "e") { fE = valor; $("fEstado").value = valor; }
   if (qual === "b") { fB = valor; $("fBioma").value = valor; }
+  if (qual === "t") { fT = valor; $("fTema").value = valor; }
   $("fLimpar").hidden = !temFiltro();
   buscar($("q").value);  // vale o que está na caixa: vazia = explorar só pelos filtros
 }
@@ -479,7 +483,7 @@ function mostrar() {
   abas();
   const lista = ranking;  // já vem filtrada pela aba (tipo)
   const alvo = unidadeSel === "" ? "toda a Embrapa" : INFO.unidades[unidadeSel].nome;
-  const filtrosTxt = [fP !== "" ? INFO.produtos[fP].nome : "", fE !== "" ? INFO.estados[fE].uf : "", fB !== "" ? INFO.biomas[fB].nome : ""].filter(Boolean).join(" · ");
+  const filtrosTxt = [fP !== "" ? INFO.produtos[fP].nome : "", fE !== "" ? INFO.estados[fE].uf : "", fB !== "" ? INFO.biomas[fB].nome : "", fT !== "" ? INFO.temas[fT].rotulo : ""].filter(Boolean).join(" · ");
   const tipoTxt = filtro ? ` · só ${ABAS.find(a => a[0] === filtro)[1].toLowerCase()}` : "";
   $("info").textContent = (EXPLORAR_TOTAL !== null ? `${fmt(EXPLORAR_TOTAL)} documentos com os filtros${tipoTxt} (mostrando os ${Math.min(EXPLORAR_TOTAL, MAX_RES)} mais recentes)`
     : (extrator ? "Mais próximos por significado" : "Busca por palavras do título (a busca por significado ainda está carregando)") + tipoTxt) + ` · ${alvo}` + (filtrosTxt ? ` · ${filtrosTxt}` : "");
@@ -522,7 +526,8 @@ $("form").addEventListener("submit", e => { e.preventDefault(); buscar($("q").va
 $("fProduto").addEventListener("change", e => aplicarFiltro("p", e.target.value));
 $("fEstado").addEventListener("change", e => aplicarFiltro("e", e.target.value));
 $("fBioma").addEventListener("change", e => aplicarFiltro("b", e.target.value));
-$("fLimpar").addEventListener("click", () => { fP = fE = fB = ""; ["fProduto", "fEstado", "fBioma"].forEach(x => $(x).value = ""); $("fLimpar").hidden = true; if ($("q").value.trim()) buscar($("q").value); else { $("resultados").hidden = true; history.replaceState(null, "", "#"); } });
+$("fTema").addEventListener("change", e => aplicarFiltro("t", e.target.value));
+$("fLimpar").addEventListener("click", () => { fP = fE = fB = fT = ""; ["fProduto", "fEstado", "fBioma", "fTema"].forEach(x => $(x).value = ""); $("fLimpar").hidden = true; if ($("q").value.trim()) buscar($("q").value); else { $("resultados").hidden = true; history.replaceState(null, "", "#"); } });
 document.addEventListener("click", e => {
   const t = e.target.closest("[data-fp],[data-fe],[data-fb]"); if (!t) return;
   if (t.dataset.fp !== undefined) aplicarFiltro("p", t.dataset.fp);
@@ -583,6 +588,10 @@ async function iniciar() {
       `<optgroup label="${esc(c)}">${ps.sort((a, b) => b[0].n - a[0].n).map(([p, k]) => `<option value="${k}">${esc(p.nome)} (${fmt(p.n)})</option>`).join("")}</optgroup>`).join(""));
     $("fEstado").insertAdjacentHTML("beforeend", INFO.estados.map((e, k) => [e, k]).sort((a, b) => a[0].uf.localeCompare(b[0].uf)).map(([e, k]) => `<option value="${k}">${e.uf} (${fmt(e.n)})</option>`).join(""));
     $("fBioma").insertAdjacentHTML("beforeend", INFO.biomas.map((b, k) => `<option value="${k}">${esc(b.nome)} (${fmt(b.n)})</option>`).join(""));
+    if (INFO.temas && INFO.temas.length && IDX.tm) {
+      $("fTema").insertAdjacentHTML("beforeend", INFO.temas.map((t, k) => `<option value="${k}">${esc(t.rotulo)} (${fmt(t.n)})</option>`).join(""));
+      $("fTema").hidden = false;
+    }
     $("filtros").hidden = false;
     fetch("estados.json").then(r => r.json()).then(m => { MAPA = m; if (ranking.length) desenharMapa(PARA_MAPA || ranking, PARA_MAPA ? "documentos com os filtros" : "resultados exibidos"); }).catch(() => {});
   }
@@ -590,6 +599,8 @@ async function iniciar() {
   if (h.get("u")) { const i = INFO.unidades.findIndex(u => u.nome === h.get("u")); if (i >= 0) { unidadeSel = String(i); $("unidade").value = unidadeSel; } }
   if (INFO.produtos) {
     const ip = INFO.produtos.findIndex(p => p.id === h.get("p")), ie = INFO.estados.findIndex(e => e.uf === h.get("e")), ib = INFO.biomas.findIndex(b => b.nome === h.get("b"));
+    const it = IDX.tm ? (INFO.temas || []).findIndex(t => t.id === h.get("t")) : -1;
+    if (it >= 0) { fT = String(it); $("fTema").value = fT; }
     if (ip >= 0) { fP = String(ip); $("fProduto").value = fP; }
     if (ie >= 0) { fE = String(ie); $("fEstado").value = fE; }
     if (ib >= 0) { fB = String(ib); $("fBioma").value = fB; }
