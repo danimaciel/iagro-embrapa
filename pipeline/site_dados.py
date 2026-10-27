@@ -13,6 +13,8 @@ vetor completo. Nos testes, o resultado é igual ao de usar o vetor completo em 
 Produtos e localização (desde 17/10/2026): vêm do Observatório de Pesquisa da Embrapa, que publica a cada mês
 o arquivo de resultados (release "enriquecimento-AAAA-MM" em danimaciel/observatorio_embrapa), baixado para
 dados/enriquecimento/ pelo fluxo. Só produtos de força "principal" (título ou palavras-chave) entram nos filtros.
+Temas (desde 27/10/2026): o tema de cada documento (BERTopic do Observatório, temas.csv da mesma release) vira o
+filtro "t", que a Rede iAgro usa para abrir todos os documentos de um tema de um produto.
 
 Uso:  python pipeline/site_dados.py 2026-10
 """
@@ -108,7 +110,16 @@ def main(mes: str) -> None:
         indice["b"] = [lista(v, ib) for v in lin.biomas]
         conta = lambda col, idx: pd.Series([x for v in lin[col] for x in v.split(";") if x in idx]).value_counts()
         cp, ce, cb = conta("produtos", ip), conta("ufs", ie), conta("biomas", ib)
+        temas = []
+        if (pasta / "temas.csv").exists() and "tema" in lin.columns:
+            rot = pd.read_csv(pasta / "temas.csv", dtype=str).set_index("tema_id").rotulo
+            ct = lin.tema[lin.tema != ""].value_counts()
+            temas = sorted(ct.index, key=lambda t: rot.get(t, t))
+            it = {t: i for i, t in enumerate(temas)}
+            indice["tm"] = [it.get(v, -1) for v in lin.tema]
+            temas = [{"id": t, "rotulo": rot.get(t, t), "n": int(ct[t])} for t in temas]
         extra = {
+            "temas": temas,
             "produtos": [{"id": r.produto_id, "nome": r.produto, "cat": r.categoria_ampla, "n": int(cp.get(r.produto_id, 0))}
                          for r in tax.itertuples()],
             "estados": [{"uf": uf, "n": int(ce.get(uf, 0))} for uf in UFS],
