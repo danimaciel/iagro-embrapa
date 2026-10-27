@@ -596,7 +596,7 @@ async function iniciar() {
     fetch("estados.json").then(r => r.json()).then(m => { MAPA = m; if (ranking.length) desenharMapa(PARA_MAPA || ranking, PARA_MAPA ? "documentos com os filtros" : "resultados exibidos"); }).catch(() => {});
   }
   const h = new URLSearchParams(location.hash.slice(1));
-  if (h.get("u")) { const i = INFO.unidades.findIndex(u => u.nome === h.get("u")); if (i >= 0) { unidadeSel = String(i); $("unidade").value = unidadeSel; } }
+  if (h.get("u")) { const i = INFO.unidades.findIndex(u => norm(u.nome) === norm(h.get("u"))); if (i >= 0) { unidadeSel = String(i); $("unidade").value = unidadeSel; } }
   if (INFO.produtos) {
     const ip = INFO.produtos.findIndex(p => p.id === h.get("p")), ie = INFO.estados.findIndex(e => e.uf === h.get("e")), ib = INFO.biomas.findIndex(b => b.nome === h.get("b"));
     const it = IDX.tm ? (INFO.temas || []).findIndex(t => t.id === h.get("t")) : -1;
